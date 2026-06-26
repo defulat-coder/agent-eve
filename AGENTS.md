@@ -70,6 +70,20 @@ test -f .codex/skills/<skill-name>/SKILL.md
 
 如果上游技能文件内部硬编码了 `.agents/skills/<skill-name>/...` 路径，必须保留 `.agents` 作为真实路径，不能只放 `.codex`。
 
+## Agent skills
+
+### Issue tracker
+
+任务、PRD 和 issue 使用本地 markdown 管理，写入 `.scratch/<feature-slug>/`；没有外部 PR triage 队列。See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+使用默认五状态标签：`needs-triage`、`needs-info`、`ready-for-agent`、`ready-for-human`、`wontfix`。See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+使用 single-context：根目录 `CONTEXT.md` 和 `docs/adr/`，需要时由相关 skill 懒创建。See `docs/agents/domain.md`.
+
 ## 模块地图
 
 - `apps/web`: 用户界面和浏览器端体验。
