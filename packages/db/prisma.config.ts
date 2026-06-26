@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import { defineConfig } from "prisma/config";
+import { getDatabaseUrl } from "./src/config.js";
 
 config({ path: "../../.env" });
 config({ path: "../../.env.local", override: true });
@@ -10,8 +11,6 @@ export default defineConfig({
     path: "prisma/migrations"
   },
   datasource: {
-    url:
-      process.env.DATABASE_URL ??
-      "postgresql://project_template:project_template@localhost:55432/project_template?schema=public"
+    url: getDatabaseUrl()
   }
 });

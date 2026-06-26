@@ -1,14 +1,12 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/client/client.js";
+import { getDatabaseUrl } from "./config.js";
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
 };
 
-const databaseUrl =
-  process.env.DATABASE_URL ??
-  "postgresql://project_template:project_template@localhost:55432/project_template?schema=public";
-const adapter = new PrismaPg({ connectionString: databaseUrl });
+const adapter = new PrismaPg({ connectionString: getDatabaseUrl() });
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
 
