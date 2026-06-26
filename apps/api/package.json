@@ -1,0 +1,25 @@
+{
+  "name": "@project-template/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsup src/server.ts --format esm",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@project-template/agent": "workspace:*",
+    "@project-template/db": "workspace:*",
+    "@project-template/logger": "workspace:*",
+    "@project-template/shared": "workspace:*",
+    "bullmq": "latest",
+    "fastify": "latest",
+    "ioredis": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "vitest": "latest"
+  }
+}

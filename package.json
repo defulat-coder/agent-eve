@@ -1,0 +1,26 @@
+{
+  "name": "project-template",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "db:generate": "pnpm --filter @project-template/db db:generate",
+    "db:migrate": "pnpm --filter @project-template/db db:migrate",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "latest",
+    "@types/node": "latest",
+    "eslint": "latest",
+    "prettier": "latest",
+    "tsx": "latest",
+    "tsup": "latest",
+    "turbo": "latest",
+    "typescript": "latest",
+    "typescript-eslint": "latest"
+  }
+}

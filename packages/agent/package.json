@@ -1,0 +1,21 @@
+{
+  "name": "@project-template/agent",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "vitest": "latest"
+  }
+}

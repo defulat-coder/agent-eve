@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a runnable TypeScript monorepo template with Next.js web, Fastify API, shared packages, PostgreSQL, Redis, BullMQ, Prisma, Claude Agent SDK, shadcn/ui-style components, and Vitest.
+**Goal:** Build a runnable TypeScript Agent platform template with Next.js web, Fastify API, BullMQ worker, shared packages, PostgreSQL, Redis, Claude Agent SDK, Zod, Pino, and Vitest.
 
-**Architecture:** Use `apps/web` and `apps/api` for runnable applications. Use `packages/db`, `packages/shared`, and `packages/config` for reusable database, shared schema, and tooling configuration. Use Docker Compose for local PostgreSQL and Redis.
+**Architecture:** Use `apps/web`, `apps/api`, and `apps/worker` as runtime applications. Use `packages/ui`, `packages/db`, `packages/logger`, `packages/agent`, and `packages/shared` as reusable workspace packages. Use Docker Compose for local PostgreSQL and Redis on project-specific host ports to avoid common local conflicts.
 
-**Tech Stack:** pnpm Workspace, Turborepo, TypeScript, Next.js, React, Tailwind CSS, shadcn/ui conventions, Fastify, Prisma, PostgreSQL, Redis, BullMQ, `@anthropic-ai/claude-agent-sdk`, Zod, Pino, Vitest.
+**Tech Stack:** pnpm Workspace, Turborepo, TypeScript, Next.js, React, Tailwind CSS, shadcn/ui conventions, Fastify, Prisma 7, PostgreSQL, Redis, BullMQ, `@anthropic-ai/claude-agent-sdk`, Zod, Pino, Vitest.
 
 ## Global Constraints
 
@@ -16,11 +16,12 @@
 - Avoid business-domain assumptions.
 - Include local PostgreSQL and Redis via Docker Compose.
 - Do not require a Claude API key for local boot.
+- Use `apps/web`, `apps/api`, `apps/worker`, `packages/ui`, `packages/db`, `packages/logger`, `packages/agent`, and `packages/shared`.
 - Keep frontend copy in Chinese where it is user-facing, while preserving technical identifiers such as Next.js, Fastify, Prisma, Redis, BullMQ, and Claude Agent SDK.
 
 ---
 
-### Task 1: Root Workspace Foundation
+### Task 1: Workspace Foundation
 
 **Files:**
 - Create: `package.json`
@@ -32,245 +33,81 @@
 - Create: `README.md`
 
 **Interfaces:**
-- Produces: root scripts `dev`, `build`, `lint`, `typecheck`, `test`, `db:generate`, `db:migrate`
-- Produces: local services `project_template_postgres` on port `5432` and `project_template_redis` on port `6379`
+- Produces root scripts: `dev`, `build`, `lint`, `typecheck`, `test`, `db:generate`, `db:migrate`.
+- Produces local services: PostgreSQL on host port `55432`, Redis on host port `56379`.
 
-- [ ] **Step 1: Create root workspace files**
+- [x] Create root workspace manifests and Docker Compose infrastructure.
+- [x] Install dependencies and generate `pnpm-lock.yaml`.
+- [x] Document quick start and workspace layout in `README.md`.
 
-Write root files that define the pnpm workspace, Turborepo pipeline, environment example, Docker Compose services, ignore rules, and README startup commands.
-
-- [ ] **Step 2: Verify root workspace parse**
-
-Run: `pnpm install --lockfile-only`
-
-Expected: `pnpm-lock.yaml` is created and package manifests parse successfully.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add package.json pnpm-workspace.yaml turbo.json .gitignore .env.example docker-compose.yml README.md pnpm-lock.yaml
-git commit -m "chore: add workspace foundation"
-```
-
-### Task 2: Shared Configuration Package
+### Task 2: Shared Packages
 
 **Files:**
-- Create: `packages/config/package.json`
-- Create: `packages/config/tsconfig/base.json`
-- Create: `packages/config/tsconfig/next.json`
-- Create: `packages/config/tsconfig/node.json`
-- Create: `packages/config/eslint/base.mjs`
-- Create: `packages/config/prettier/base.mjs`
+- Create: `packages/shared`
+- Create: `packages/logger`
+- Create: `packages/agent`
+- Create: `packages/db`
+- Create: `packages/ui`
 
 **Interfaces:**
-- Produces: TypeScript config paths consumed by app and package `tsconfig.json` files.
-- Produces: shared lint and formatting config modules.
+- `@project-template/shared`: `HealthStatusSchema`, `AgentJobPayloadSchema`, `agentQueueName`.
+- `@project-template/logger`: `createLogger`, `createLoggerOptions`.
+- `@project-template/agent`: `parseAgentConfig`, `getAgentConfigState`, `loadClaudeAgentSdk`.
+- `@project-template/db`: Prisma schema, Prisma config, `prisma` client export.
+- `@project-template/ui`: shadcn/ui-style `Button` and `cn`.
 
-- [ ] **Step 1: Create shared config package**
+- [x] Add shared Zod schemas and tests.
+- [x] Add Pino logger package and tests.
+- [x] Add Claude Agent SDK wrapper and tests.
+- [x] Add Prisma 7 package with `prisma.config.ts`.
+- [x] Add shared UI package with shadcn/ui-style Button.
 
-Create focused config files for browser/Next.js projects and Node.js projects.
-
-- [ ] **Step 2: Verify package metadata**
-
-Run: `pnpm --filter @project-template/config typecheck`
-
-Expected: command is skipped or exits successfully because the package contains config only.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add packages/config
-git commit -m "chore: add shared tool config"
-```
-
-### Task 3: Shared Schema Package
+### Task 3: Runtime Applications
 
 **Files:**
-- Create: `packages/shared/package.json`
-- Create: `packages/shared/tsconfig.json`
-- Create: `packages/shared/vitest.config.ts`
-- Create: `packages/shared/src/index.ts`
-- Create: `packages/shared/src/health.ts`
-- Create: `packages/shared/src/health.test.ts`
+- Create: `apps/api`
+- Create: `apps/worker`
+- Create: `apps/web`
 
 **Interfaces:**
-- Produces: `HealthStatusSchema`, `type HealthStatus`, and `createHealthStatus(input)`
-- Consumed by: `apps/api` health route and `apps/web` health client
+- `apps/api`: Fastify server, `GET /health`, `POST /agent/jobs`.
+- `apps/worker`: BullMQ processor for `agent-jobs`.
+- `apps/web`: Next.js dashboard that reads API health and displays stack status.
 
-- [ ] **Step 1: Create shared schema package**
+- [x] Add Fastify API with fast health checks that degrade cleanly when PostgreSQL/Redis are unavailable.
+- [x] Add BullMQ worker with pure job handler tests.
+- [x] Add Next.js App Router frontend with Chinese user-facing copy.
 
-Define a Zod health schema with service name, status, timestamp, database, redis, queue, and Claude configuration fields.
-
-- [ ] **Step 2: Run shared tests**
-
-Run: `pnpm --filter @project-template/shared test`
-
-Expected: Vitest passes the schema parsing test.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add packages/shared
-git commit -m "feat: add shared health schema"
-```
-
-### Task 4: Database Package
+### Task 4: Verification
 
 **Files:**
-- Create: `packages/db/package.json`
-- Create: `packages/db/tsconfig.json`
-- Create: `packages/db/prisma/schema.prisma`
-- Create: `packages/db/src/index.ts`
+- Modify: workspace package scripts and configs as needed.
 
-**Interfaces:**
-- Produces: `prisma: PrismaClient`
-- Produces: Prisma schema with `TemplateEvent` model
-- Consumed by: `apps/api`
-
-- [ ] **Step 1: Create Prisma package**
-
-Create a minimal Prisma schema targeting PostgreSQL and export a singleton Prisma Client.
-
-- [ ] **Step 2: Generate Prisma Client**
-
-Run: `pnpm db:generate`
-
-Expected: Prisma Client generation succeeds.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add packages/db
-git commit -m "feat: add prisma database package"
-```
-
-### Task 5: Fastify API Application
-
-**Files:**
-- Create: `apps/api/package.json`
-- Create: `apps/api/tsconfig.json`
-- Create: `apps/api/vitest.config.ts`
-- Create: `apps/api/src/env.ts`
-- Create: `apps/api/src/logger.ts`
-- Create: `apps/api/src/queue.ts`
-- Create: `apps/api/src/claude-agent.ts`
-- Create: `apps/api/src/health.ts`
-- Create: `apps/api/src/app.ts`
-- Create: `apps/api/src/server.ts`
-- Create: `apps/api/src/health.test.ts`
-
-**Interfaces:**
-- Produces: `buildApp()` returning a Fastify instance.
-- Produces: `GET /health` returning `HealthStatus`.
-- Consumes: `@project-template/db` and `@project-template/shared`.
-
-- [ ] **Step 1: Create API app files**
-
-Implement environment parsing, logger, Redis/BullMQ queue setup, Claude Agent SDK wrapper, health checks, Fastify app builder, and server entrypoint.
-
-- [ ] **Step 2: Run API tests**
-
-Run: `pnpm --filter @project-template/api test`
-
-Expected: Vitest passes health route tests without requiring Docker services or Claude credentials.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add apps/api
-git commit -m "feat: add fastify api app"
-```
-
-### Task 6: Next.js Web Application
-
-**Files:**
-- Create: `apps/web/package.json`
-- Create: `apps/web/tsconfig.json`
-- Create: `apps/web/next.config.ts`
-- Create: `apps/web/postcss.config.mjs`
-- Create: `apps/web/vitest.config.ts`
-- Create: `apps/web/components.json`
-- Create: `apps/web/app/globals.css`
-- Create: `apps/web/app/layout.tsx`
-- Create: `apps/web/app/page.tsx`
-- Create: `apps/web/src/lib/utils.ts`
-- Create: `apps/web/src/lib/health.ts`
-- Create: `apps/web/src/components/ui/button.tsx`
-- Create: `apps/web/src/lib/utils.test.ts`
-
-**Interfaces:**
-- Produces: a Next.js app on port `3000`.
-- Consumes: API health endpoint from `NEXT_PUBLIC_API_BASE_URL`.
-- Uses: shadcn/ui-compatible `Button` and `cn()`.
-
-- [ ] **Step 1: Create web app files**
-
-Implement a Chinese developer-facing dashboard that renders API status and template stack metadata.
-
-- [ ] **Step 2: Run web tests**
-
-Run: `pnpm --filter @project-template/web test`
-
-Expected: Vitest passes utility tests.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add apps/web
-git commit -m "feat: add next web app"
-```
-
-### Task 7: End-to-End Workspace Verification
-
-**Files:**
-- Modify: `README.md`
-
-**Interfaces:**
-- Verifies: Docker Compose services, Prisma generation, workspace tests, type checks, builds, API health route, and web app startup.
-
-- [ ] **Step 1: Install dependencies**
-
-Run: `pnpm install`
-
-Expected: dependencies install and lockfile is current.
-
-- [ ] **Step 2: Start local infrastructure**
-
-Run: `docker compose up -d`
-
-Expected: PostgreSQL and Redis containers are healthy or running.
-
-- [ ] **Step 3: Run verification gates**
-
-Run:
+**Verification commands:**
 
 ```bash
 pnpm db:generate
-pnpm typecheck
+pnpm lint
 pnpm test
+pnpm typecheck
 pnpm build
 ```
 
-Expected: all commands complete successfully.
-
-- [ ] **Step 4: Verify runtime services**
-
-Run:
+**Runtime checks:**
 
 ```bash
 pnpm --filter @project-template/api dev
 pnpm --filter @project-template/web dev
+curl -sS http://localhost:4000/health
+curl -sS -I http://localhost:3000
 ```
 
-Expected: API serves `http://localhost:4000/health`; web serves `http://localhost:3000`.
-
-- [ ] **Step 5: Update README with verified commands**
-
-Add any command adjustments discovered during verification.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add README.md pnpm-lock.yaml
-git commit -m "docs: verify project template startup"
-```
+- [x] `pnpm db:generate` passes with Prisma 7.
+- [x] `pnpm lint` passes.
+- [x] `pnpm test` passes.
+- [x] `pnpm typecheck` passes.
+- [x] `pnpm build` passes.
+- [x] API and Web dev servers start.
+- [x] API health returns quickly when Docker services are unavailable.
+- [x] Web homepage returns HTTP 200.
+- [ ] `docker compose up -d` and `pnpm db:migrate` require the local Docker daemon to be running.

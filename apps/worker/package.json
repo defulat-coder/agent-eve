@@ -1,0 +1,22 @@
+{
+  "name": "@project-template/worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/worker.ts",
+    "build": "tsup src/worker.ts --format esm",
+    "lint": "eslint src",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@project-template/agent": "workspace:*",
+    "@project-template/logger": "workspace:*",
+    "@project-template/shared": "workspace:*",
+    "bullmq": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "vitest": "latest"
+  }
+}
