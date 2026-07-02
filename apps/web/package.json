@@ -1,5 +1,5 @@
 {
-  "name": "@project-template/web",
+  "name": "@agent-template/web",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,8 +11,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@project-template/shared": "workspace:*",
-    "@project-template/ui": "workspace:*",
+    "@agent-template/shared": "workspace:*",
+    "@agent-template/ui": "workspace:*",
     "next": "^16.2.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

@@ -1,5 +1,5 @@
 import Fastify, { type FastifyInstance } from "fastify";
-import { createLoggerOptions } from "@project-template/logger";
+import { createLoggerOptions } from "@agent-template/logger";
 import { loadEnv, type Env } from "./env.js";
 import { getHealth } from "./health.js";
 import { enqueueAgentJob } from "./agent-job-intake.js";

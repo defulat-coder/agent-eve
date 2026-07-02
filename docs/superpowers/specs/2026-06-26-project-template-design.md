@@ -1,4 +1,4 @@
-# Project Template Design
+# Agent Template Design
 
 ## Goal
 
@@ -47,7 +47,7 @@ The frontend includes:
 
 - App Router structure under `apps/web/app`.
 - Tailwind CSS configuration.
-- Shared UI imports from `@project-template/ui`.
+- Shared UI imports from `@agent-template/ui`.
 - A minimal reusable `Button` component matching shadcn/ui patterns in `packages/ui`.
 - A Vitest test for a small UI utility or component behavior.
 
@@ -56,18 +56,18 @@ The frontend includes:
 The backend starts a Fastify server with:
 
 - `GET /health` returning service status, timestamp, database connectivity, Redis connectivity, and queue metadata.
-- Pino logger imported from `@project-template/logger`.
+- Pino logger imported from `@agent-template/logger`.
 - Zod-based environment parsing.
-- Prisma Client imported from `@project-template/db`.
+- Prisma Client imported from `@agent-template/db`.
 - Redis connection setup.
 - BullMQ queue producer setup with a simple typed queue module.
-- Agent package configuration state imported from `@project-template/agent`.
+- Agent package configuration state imported from `@agent-template/agent`.
 
 The API should boot even when Claude API credentials are absent. Missing Claude credentials are reported as configuration state, not a startup failure.
 
 ## Worker Behavior
 
-The worker starts a BullMQ processor for the shared agent queue. It imports logger behavior from `@project-template/logger` and agent behavior from `@project-template/agent`. The initial processor records template-oriented job execution metadata without assuming a business domain.
+The worker starts a BullMQ processor for the shared agent queue. It imports logger behavior from `@agent-template/logger` and agent behavior from `@agent-template/agent`. The initial processor records template-oriented job execution metadata without assuming a business domain.
 
 ## Testing
 

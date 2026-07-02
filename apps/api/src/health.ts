@@ -1,5 +1,5 @@
-import { getAgentConfigStateFromEnv } from "@project-template/agent";
-import { createHealthStatus, agentQueueName, type DependencyState, type HealthStatus } from "@project-template/shared";
+import { getAgentConfigStateFromEnv } from "@agent-template/agent";
+import { createHealthStatus, agentQueueName, type DependencyState, type HealthStatus } from "@agent-template/shared";
 import { createRedisPingConnection } from "./queue.js";
 import type { Env } from "./env.js";
 
@@ -16,7 +16,7 @@ export type HealthAdapters = {
 
 async function checkDatabase(): Promise<DependencyState> {
   try {
-    const { prisma } = await import("@project-template/db");
+    const { prisma } = await import("@agent-template/db");
     await withTimeout(prisma.$queryRaw`SELECT 1`, 800, "PostgreSQL check timed out");
     return { status: "ok", message: "PostgreSQL reachable" };
   } catch (error) {

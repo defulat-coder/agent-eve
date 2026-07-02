@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { defaultClaudeAgentModel } from "@project-template/agent";
-import { defaultDatabaseUrl } from "@project-template/db/config";
+import { defaultClaudeAgentModel } from "@agent-template/agent";
+import { defaultDatabaseUrl } from "@agent-template/db/config";
 
 export const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),

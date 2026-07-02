@@ -1,4 +1,4 @@
-import { Button } from "@project-template/ui";
+import { Button } from "@agent-template/ui";
 import { fetchHealth } from "@/lib/health";
 import { stackItems } from "@/lib/stack";
 

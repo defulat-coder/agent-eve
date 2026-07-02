@@ -1,5 +1,5 @@
 {
-  "name": "@project-template/db",
+  "name": "@agent-template/db",
   "private": true,
   "type": "module",
   "exports": {

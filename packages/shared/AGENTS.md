@@ -19,8 +19,8 @@
 ## 验证
 
 ```bash
-pnpm --filter @project-template/shared lint
-pnpm --filter @project-template/shared test
-pnpm --filter @project-template/shared typecheck
-pnpm --filter @project-template/shared build
+pnpm --filter @agent-template/shared lint
+pnpm --filter @agent-template/shared test
+pnpm --filter @agent-template/shared typecheck
+pnpm --filter @agent-template/shared build
 ```

@@ -25,8 +25,8 @@
 ## 验证
 
 ```bash
-pnpm --filter @project-template/ui lint
-pnpm --filter @project-template/ui test
-pnpm --filter @project-template/ui typecheck
-pnpm --filter @project-template/ui build
+pnpm --filter @agent-template/ui lint
+pnpm --filter @agent-template/ui test
+pnpm --filter @agent-template/ui typecheck
+pnpm --filter @agent-template/ui build
 ```

@@ -1,5 +1,5 @@
 {
-  "name": "@project-template/ui",
+  "name": "@agent-template/ui",
   "private": true,
   "type": "module",
   "exports": {

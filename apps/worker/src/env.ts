@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defaultClaudeAgentModel } from "@project-template/agent";
+import { defaultClaudeAgentModel } from "@agent-template/agent";
 
 export const WorkerEnvSchema = z.object({
   REDIS_URL: z.string().url().default("redis://localhost:56379"),

@@ -60,7 +60,7 @@ git clone --depth 1 --filter=blob:none --sparse <repo-url> /tmp/<skill-name>
 cd /tmp/<skill-name>
 git sparse-checkout set <path-to-skill>
 
-cd /Users/xbjt/Documents/myself/project-template
+cd /Users/xbjt/Documents/myself/agent-template
 mkdir -p .agents/skills .codex/skills
 rm -rf .agents/skills/<skill-name> .codex/skills/<skill-name>
 cp -R /tmp/<skill-name>/<path-to-skill> .agents/skills/<skill-name>

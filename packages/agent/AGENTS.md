@@ -20,8 +20,8 @@
 ## 验证
 
 ```bash
-pnpm --filter @project-template/agent lint
-pnpm --filter @project-template/agent test
-pnpm --filter @project-template/agent typecheck
-pnpm --filter @project-template/agent build
+pnpm --filter @agent-template/agent lint
+pnpm --filter @agent-template/agent test
+pnpm --filter @agent-template/agent typecheck
+pnpm --filter @agent-template/agent build
 ```

@@ -1,4 +1,4 @@
-# Project Template
+# Agent Template
 
 一个基于 pnpm Workspace 和 Turborepo 的 TypeScript 项目模板，包含 Next.js 前端、Fastify API、BullMQ Worker、Prisma/PostgreSQL、Redis、Claude Agent SDK、Zod、Pino 和 Vitest。
 

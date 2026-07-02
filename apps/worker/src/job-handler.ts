@@ -1,5 +1,5 @@
-import { getAgentConfigStateFromEnv } from "@project-template/agent";
-import { AgentJobPayloadSchema, type AgentJobPayload } from "@project-template/shared";
+import { getAgentConfigStateFromEnv } from "@agent-template/agent";
+import { AgentJobPayloadSchema, type AgentJobPayload } from "@agent-template/shared";
 
 export type AgentJobResult = {
   accepted: true;

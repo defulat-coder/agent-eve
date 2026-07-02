@@ -1,4 +1,4 @@
-import { agentJobName, AgentJobPayloadSchema, type AgentJobName, type AgentJobPayload } from "@project-template/shared";
+import { agentJobName, AgentJobPayloadSchema, type AgentJobName, type AgentJobPayload } from "@agent-template/shared";
 import { createAgentQueue } from "./queue.js";
 
 export type AgentJobAccepted = {

@@ -8,9 +8,9 @@
 
 - Worker 进程入口在 `src/worker.ts`。
 - 可单测的业务处理放在 `src/job-handler.ts`。
-- 队列名、任务名和 payload schema 来自 `@project-template/shared`。
-- Agent 配置和 SDK 入口来自 `@project-template/agent`。
-- 日志使用 `@project-template/logger`。
+- 队列名、任务名和 payload schema 来自 `@agent-template/shared`。
+- Agent 配置和 SDK 入口来自 `@agent-template/agent`。
+- 日志使用 `@agent-template/logger`。
 
 ## 不应该做
 
@@ -21,8 +21,8 @@
 ## 验证
 
 ```bash
-pnpm --filter @project-template/worker lint
-pnpm --filter @project-template/worker test
-pnpm --filter @project-template/worker typecheck
-pnpm --filter @project-template/worker build
+pnpm --filter @agent-template/worker lint
+pnpm --filter @agent-template/worker test
+pnpm --filter @agent-template/worker typecheck
+pnpm --filter @agent-template/worker build
 ```

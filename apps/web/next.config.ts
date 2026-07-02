@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@project-template/ui", "@project-template/shared"]
+  transpilePackages: ["@agent-template/ui", "@agent-template/shared"]
 };
 
 export default nextConfig;

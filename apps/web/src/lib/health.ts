@@ -1,4 +1,4 @@
-import { HealthStatusSchema, type HealthStatus } from "@project-template/shared";
+import { HealthStatusSchema, type HealthStatus } from "@agent-template/shared";
 
 export type HealthResult =
   | {

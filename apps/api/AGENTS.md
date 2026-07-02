@@ -7,10 +7,10 @@
 ## 能力边界
 
 - HTTP 路由和 Fastify app 装配放在这里。
-- 数据库访问通过 `@project-template/db`。
-- 任务队列使用 BullMQ，并通过 `@project-template/shared` 的队列名和 payload schema 保持类型一致。
-- 日志使用 `@project-template/logger`。
-- Claude 配置状态通过 `@project-template/agent` 读取，不在 API 内直接调用 SDK。
+- 数据库访问通过 `@agent-template/db`。
+- 任务队列使用 BullMQ，并通过 `@agent-template/shared` 的队列名和 payload schema 保持类型一致。
+- 日志使用 `@agent-template/logger`。
+- Claude 配置状态通过 `@agent-template/agent` 读取，不在 API 内直接调用 SDK。
 
 ## 不应该做
 
@@ -25,8 +25,8 @@
 ## 验证
 
 ```bash
-pnpm --filter @project-template/api lint
-pnpm --filter @project-template/api test
-pnpm --filter @project-template/api typecheck
-pnpm --filter @project-template/api build
+pnpm --filter @agent-template/api lint
+pnpm --filter @agent-template/api test
+pnpm --filter @agent-template/api typecheck
+pnpm --filter @agent-template/api build
 ```

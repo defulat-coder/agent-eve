@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Project Template",
-  description: "Next.js + Fastify + BullMQ project template"
+  title: "Agent Template",
+  description: "Next.js + Fastify + BullMQ agent template"
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

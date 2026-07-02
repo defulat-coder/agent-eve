@@ -18,9 +18,9 @@
 ## 验证
 
 ```bash
-pnpm --filter @project-template/web lint
-pnpm --filter @project-template/api test
-pnpm --filter @project-template/worker typecheck
+pnpm --filter @agent-template/web lint
+pnpm --filter @agent-template/api test
+pnpm --filter @agent-template/worker typecheck
 ```
 
 跨应用改动后运行：

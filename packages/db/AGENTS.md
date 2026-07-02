@@ -22,9 +22,9 @@
 
 ```bash
 pnpm db:generate
-pnpm --filter @project-template/db lint
-pnpm --filter @project-template/db typecheck
-pnpm --filter @project-template/db build
+pnpm --filter @agent-template/db lint
+pnpm --filter @agent-template/db typecheck
+pnpm --filter @agent-template/db build
 ```
 
 本地迁移需要 Docker daemon 已启动：

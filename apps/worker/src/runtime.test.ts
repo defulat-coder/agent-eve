@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createAgentWorkerRuntime } from "./runtime.js";
-import type { AgentJobPayload } from "@project-template/shared";
+import type { AgentJobPayload } from "@agent-template/shared";
 
 describe("createAgentWorkerRuntime", () => {
   it("assembles worker processing, events, and shutdown behind one interface", async () => {

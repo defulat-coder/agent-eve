@@ -14,6 +14,6 @@ export default defineConfig({
     "pino",
     "zod"
   ],
-  noExternal: [/^@project-template\//],
+  noExternal: [/^@agent-template\//],
   clean: true
 });

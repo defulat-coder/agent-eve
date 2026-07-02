@@ -1,5 +1,5 @@
 {
-  "name": "@project-template/shared",
+  "name": "@agent-template/shared",
   "private": true,
   "type": "module",
   "exports": {

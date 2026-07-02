@@ -20,7 +20,7 @@
 ## 验证
 
 ```bash
-pnpm --filter @project-template/shared test
-pnpm --filter @project-template/ui typecheck
+pnpm --filter @agent-template/shared test
+pnpm --filter @agent-template/ui typecheck
 pnpm typecheck
 ```

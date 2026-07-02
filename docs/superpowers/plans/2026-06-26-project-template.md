@@ -1,4 +1,4 @@
-# Project Template Implementation Plan
+# Agent Template Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -50,11 +50,11 @@
 - Create: `packages/ui`
 
 **Interfaces:**
-- `@project-template/shared`: `HealthStatusSchema`, `AgentJobPayloadSchema`, `agentQueueName`.
-- `@project-template/logger`: `createLogger`, `createLoggerOptions`.
-- `@project-template/agent`: `parseAgentConfig`, `getAgentConfigState`, `loadClaudeAgentSdk`.
-- `@project-template/db`: Prisma schema, Prisma config, `prisma` client export.
-- `@project-template/ui`: shadcn/ui-style `Button` and `cn`.
+- `@agent-template/shared`: `HealthStatusSchema`, `AgentJobPayloadSchema`, `agentQueueName`.
+- `@agent-template/logger`: `createLogger`, `createLoggerOptions`.
+- `@agent-template/agent`: `parseAgentConfig`, `getAgentConfigState`, `loadClaudeAgentSdk`.
+- `@agent-template/db`: Prisma schema, Prisma config, `prisma` client export.
+- `@agent-template/ui`: shadcn/ui-style `Button` and `cn`.
 
 - [x] Add shared Zod schemas and tests.
 - [x] Add Pino logger package and tests.
@@ -96,8 +96,8 @@ pnpm build
 **Runtime checks:**
 
 ```bash
-pnpm --filter @project-template/api dev
-pnpm --filter @project-template/web dev
+pnpm --filter @agent-template/api dev
+pnpm --filter @agent-template/web dev
 curl -sS http://localhost:4000/health
 curl -sS -I http://localhost:3000
 ```

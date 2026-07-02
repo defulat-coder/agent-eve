@@ -7,8 +7,8 @@
 ## 能力边界
 
 - 使用 App Router，页面入口在 `app/`。
-- 共享 UI 组件从 `@project-template/ui` 引入。
-- 共享类型和响应 schema 从 `@project-template/shared` 引入。
+- 共享 UI 组件从 `@agent-template/ui` 引入。
+- 共享类型和响应 schema 从 `@agent-template/shared` 引入。
 - API base URL 使用 `NEXT_PUBLIC_API_BASE_URL`，默认 `http://localhost:4000`。
 
 ## 不应该做
@@ -27,8 +27,8 @@
 ## 验证
 
 ```bash
-pnpm --filter @project-template/web lint
-pnpm --filter @project-template/web test
-pnpm --filter @project-template/web typecheck
-pnpm --filter @project-template/web build
+pnpm --filter @agent-template/web lint
+pnpm --filter @agent-template/web test
+pnpm --filter @agent-template/web typecheck
+pnpm --filter @agent-template/web build
 ```

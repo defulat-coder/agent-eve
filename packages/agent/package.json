@@ -1,5 +1,5 @@
 {
-  "name": "@project-template/agent",
+  "name": "@agent-template/agent",
   "private": true,
   "type": "module",
   "exports": {

@@ -19,8 +19,8 @@
 ## 验证
 
 ```bash
-pnpm --filter @project-template/logger lint
-pnpm --filter @project-template/logger test
-pnpm --filter @project-template/logger typecheck
-pnpm --filter @project-template/logger build
+pnpm --filter @agent-template/logger lint
+pnpm --filter @agent-template/logger test
+pnpm --filter @agent-template/logger typecheck
+pnpm --filter @agent-template/logger build
 ```
