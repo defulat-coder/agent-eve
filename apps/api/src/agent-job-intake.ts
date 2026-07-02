@@ -6,18 +6,30 @@ export type AgentJobAccepted = {
   queue: string;
 };
 
+export type AgentJobIntake = {
+  enqueue(input: unknown): Promise<AgentJobAccepted>;
+};
+
 type AgentJobQueue = {
   name: string;
   add(name: AgentJobName, payload: AgentJobPayload): Promise<{ id: string | undefined }>;
   close(): Promise<unknown>;
 };
 
-export type EnqueueAgentJobOptions = {
+type EnqueueAgentJobOptions = {
   redisUrl: string;
   createQueue?: (redisUrl: string) => AgentJobQueue;
 };
 
-export async function enqueueAgentJob(input: unknown, options: EnqueueAgentJobOptions): Promise<AgentJobAccepted> {
+export function createAgentJobIntake(options: EnqueueAgentJobOptions): AgentJobIntake {
+  return {
+    enqueue(input) {
+      return enqueueAgentJob(input, options);
+    }
+  };
+}
+
+async function enqueueAgentJob(input: unknown, options: EnqueueAgentJobOptions): Promise<AgentJobAccepted> {
   const payload = AgentJobPayloadSchema.parse(input);
   const queue = (options.createQueue ?? createAgentQueue)(options.redisUrl);
 

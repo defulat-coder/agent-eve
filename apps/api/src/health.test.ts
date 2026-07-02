@@ -22,6 +22,39 @@ describe("GET /health", () => {
   });
 });
 
+describe("POST /agent/jobs", () => {
+  it("accepts Agent jobs through the app-level intake interface", async () => {
+    const calls: unknown[] = [];
+    const app = buildApp({
+      env: loadEnv({ NODE_ENV: "test" }),
+      agentJobIntake: {
+        async enqueue(input) {
+          calls.push(input);
+          return { id: "job-1", queue: "agent-jobs" };
+        }
+      }
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/agent/jobs",
+      payload: {
+        prompt: "Summarize this template",
+        requestedAt: "2026-06-26T00:00:00.000Z"
+      }
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(response.json()).toEqual({ id: "job-1", queue: "agent-jobs" });
+    expect(calls).toEqual([
+      {
+        prompt: "Summarize this template",
+        requestedAt: "2026-06-26T00:00:00.000Z"
+      }
+    ]);
+  });
+});
+
 describe("getHealth", () => {
   it("aggregates adapter results through the Health interface", async () => {
     const status = await getHealth(loadEnv({ NODE_ENV: "test" }), {
