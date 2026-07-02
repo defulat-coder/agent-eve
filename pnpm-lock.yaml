@@ -140,9 +140,35 @@ importers:
 
   packages/agent:
     dependencies:
+      '@agent-template/agent-claude':
+        specifier: workspace:*
+        version: link:../agent-claude
+      '@agent-template/agent-eve':
+        specifier: workspace:*
+        version: link:../agent-eve
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@types/node@26.0.1)(vite@8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
+
+  packages/agent-claude:
+    dependencies:
       '@anthropic-ai/claude-agent-sdk':
         specifier: '>=0.3.193 <1.0.0'
         version: 0.3.193(@anthropic-ai/sdk@0.106.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
+    devDependencies:
+      vitest:
+        specifier: ^4.1.9
+        version: 4.1.9(@types/node@26.0.1)(vite@8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
+
+  packages/agent-eve:
+    dependencies:
       zod:
         specifier: ^4.4.3
         version: 4.4.3

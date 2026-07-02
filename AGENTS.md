@@ -8,7 +8,7 @@
 
 - Web: Next.js + React + Tailwind CSS + shadcn/ui 风格组件 + Vitest
 - API: Fastify + Prisma + PostgreSQL + Redis + BullMQ + Zod + Pino + Vitest
-- Worker: BullMQ 后台任务处理 + Claude Agent SDK 封装
+- Worker: BullMQ 后台任务处理 + 可选 Agent runtime
 
 ## 通用规则
 
@@ -79,12 +79,16 @@ docker compose up -d
 - `packages/shared`: 前后端共享 Zod schema、类型和常量。
 - `packages/db`: Prisma schema、Prisma Client 和数据库配置。
 - `packages/logger`: Pino logger 封装。
-- `packages/agent`: Claude Agent SDK 配置和加载边界。
+- `packages/agent`: Agent runtime contract、`AGENT_RUNTIME` selector 和公共入口。
+- `packages/agent-claude`: Claude Agent SDK backed runtime。
+- `packages/agent-eve`: Eve filesystem-first runtime 和 `agent/` authored surface。
 
 ## 架构规则
 
 - Agent job intake 的外部 seam 是 `AgentJobIntake.enqueue(input)`；Fastify route 不直接管理 Redis URL 或 BullMQ lifecycle。
 - Worker runtime 的 BullMQ event wiring 留在 Worker adapter implementation 内；测试穿过 `onCompleted` / `onFailed` 回调 interface。
+- Agent runtime 只通过环境变量 `AGENT_RUNTIME=claude|eve` 选择；不要从 job payload 覆盖 runtime。
+- `apps/*` 只依赖 `@agent-template/agent` 的公共 runtime 边界，不直接依赖具体 runtime package。
 - Queue runtime 暂不抽成新 module；只有新增第三个 queue consumer、queue option 规则增长或 adapter 需要替换测试时再打开。
 
 ## 提交规则

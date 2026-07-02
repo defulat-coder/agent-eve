@@ -18,7 +18,8 @@ describe("GET /health", () => {
     expect(body.status).toBe("ok");
     expect(body.database.status).toBe("skipped");
     expect(body.redis.status).toBe("skipped");
-    expect(body.claude.configured).toBe(false);
+    expect(body.agent.runtime).toBe("claude");
+    expect(body.agent.configured).toBe(false);
   });
 });
 
@@ -70,5 +71,6 @@ describe("getHealth", () => {
     expect(status.timestamp).toBe("2026-06-26T00:00:00.000Z");
     expect(status.queue.status).toBe("unavailable");
     expect(status.redis.message).toBe("Redis refused connection");
+    expect(status.agent.runtime).toBe("claude");
   });
 });

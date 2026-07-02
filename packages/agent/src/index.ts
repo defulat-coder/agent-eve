@@ -1,37 +1,47 @@
 import { z } from "zod";
+import {
+  defaultClaudeAgentModel,
+  getClaudeAgentRuntimeStateFromEnv,
+  loadClaudeAgentSdk
+} from "@agent-template/agent-claude";
+import { getEveAgentRuntimeStateFromEnv } from "@agent-template/agent-eve";
 
-export const defaultClaudeAgentModel = "claude-sonnet-4-5";
+export { defaultClaudeAgentModel, loadClaudeAgentSdk };
 
-export const AgentConfigSchema = z.object({
-  apiKey: z.string().min(1).optional(),
-  model: z.string().min(1).default(defaultClaudeAgentModel)
+export const defaultAgentRuntimeName = "claude";
+export const AgentRuntimeNameSchema = z.enum(["claude", "eve"]);
+
+export const AgentRuntimeConfigSchema = z.object({
+  runtime: AgentRuntimeNameSchema.default(defaultAgentRuntimeName)
 });
 
-export type AgentConfig = z.infer<typeof AgentConfigSchema>;
+export type AgentRuntimeName = z.infer<typeof AgentRuntimeNameSchema>;
+export type AgentRuntimeConfig = z.infer<typeof AgentRuntimeConfigSchema>;
 
-export type AgentConfigState = {
+export type AgentRuntimeState = {
+  runtime: AgentRuntimeName;
   configured: boolean;
   model: string;
 };
 
-export function parseAgentConfig(input: Record<string, unknown>): AgentConfig {
-  return AgentConfigSchema.parse({
-    apiKey: input.ANTHROPIC_API_KEY || undefined,
-    model: input.CLAUDE_AGENT_MODEL || undefined
+export function parseAgentRuntimeConfig(input: Record<string, unknown>): AgentRuntimeConfig {
+  return AgentRuntimeConfigSchema.parse({
+    runtime: input.AGENT_RUNTIME || undefined
   });
 }
 
-export function getAgentConfigState(config: AgentConfig): AgentConfigState {
+export function getAgentRuntimeStateFromEnv(input: Record<string, unknown>): AgentRuntimeState {
+  const { runtime } = parseAgentRuntimeConfig(input);
+
+  if (runtime === "eve") {
+    return {
+      runtime,
+      ...getEveAgentRuntimeStateFromEnv(input)
+    };
+  }
+
   return {
-    configured: Boolean(config.apiKey),
-    model: config.model
+    runtime,
+    ...getClaudeAgentRuntimeStateFromEnv(input)
   };
-}
-
-export function getAgentConfigStateFromEnv(input: Record<string, unknown>): AgentConfigState {
-  return getAgentConfigState(parseAgentConfig(input));
-}
-
-export async function loadClaudeAgentSdk() {
-  return import("@anthropic-ai/claude-agent-sdk");
 }

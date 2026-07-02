@@ -1,10 +1,11 @@
-import { getAgentConfigStateFromEnv } from "@agent-template/agent";
+import { getAgentRuntimeStateFromEnv, type AgentRuntimeName } from "@agent-template/agent";
 import { AgentJobPayloadSchema } from "@agent-template/shared";
 
 export type AgentJobResult = {
   accepted: true;
   promptLength: number;
-  claudeConfigured: boolean;
+  runtime: AgentRuntimeName;
+  configured: boolean;
   model: string;
 };
 
@@ -13,12 +14,13 @@ export async function handleAgentJob(
   env: Record<string, unknown>
 ): Promise<AgentJobResult> {
   const parsed = AgentJobPayloadSchema.parse(payload);
-  const agentState = getAgentConfigStateFromEnv(env);
+  const agentState = getAgentRuntimeStateFromEnv(env);
 
   return {
     accepted: true,
     promptLength: parsed.prompt.length,
-    claudeConfigured: agentState.configured,
+    runtime: agentState.runtime,
+    configured: agentState.configured,
     model: agentState.model
   };
 }

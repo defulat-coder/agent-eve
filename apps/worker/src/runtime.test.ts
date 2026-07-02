@@ -19,7 +19,7 @@ describe("createAgentWorkerRuntime", () => {
     let closed = false;
 
     const runtime = createAgentWorkerRuntime({
-      env: { REDIS_URL: "redis://localhost:56379", CLAUDE_AGENT_MODEL: "claude-sonnet-4-5" },
+      env: { REDIS_URL: "redis://localhost:56379", AGENT_RUNTIME: "claude", CLAUDE_AGENT_MODEL: "claude-sonnet-4-5" },
       logger: {
         info(data, message) {
           logs.push(["info", data, message]);
@@ -43,7 +43,8 @@ describe("createAgentWorkerRuntime", () => {
         return {
           accepted: true,
           promptLength: jobPayload.prompt.length,
-          claudeConfigured: false,
+          runtime: "claude",
+          configured: false,
           model: "claude-sonnet-4-5"
         };
       }
@@ -52,7 +53,8 @@ describe("createAgentWorkerRuntime", () => {
     await expect(capturedProcessJob?.({ id: "job-1", name: "agent.run", data: payload })).resolves.toEqual({
       accepted: true,
       promptLength: 23,
-      claudeConfigured: false,
+      runtime: "claude",
+      configured: false,
       model: "claude-sonnet-4-5"
     });
     capturedOnCompleted?.({ id: "job-1", name: "agent.run", data: payload });

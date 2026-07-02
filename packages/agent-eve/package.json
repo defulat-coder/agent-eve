@@ -1,5 +1,5 @@
 {
-  "name": "@agent-template/agent",
+  "name": "@agent-template/agent-eve",
   "private": true,
   "type": "module",
   "exports": {
@@ -12,8 +12,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@agent-template/agent-claude": "workspace:*",
-    "@agent-template/agent-eve": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

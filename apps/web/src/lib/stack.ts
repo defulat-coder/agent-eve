@@ -9,6 +9,7 @@ export const stackItems = [
   "Redis",
   "BullMQ",
   "Claude Agent SDK",
+  "Eve Agent runtime",
   "Zod",
   "Pino",
   "Vitest",

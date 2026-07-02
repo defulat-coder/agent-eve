@@ -19,13 +19,14 @@ describe("createHealthStatus", () => {
         name: "agent-jobs",
         status: "ready"
       },
-      claude: {
+      agent: {
+        runtime: "claude",
         configured: false,
         model: "claude-sonnet-4-5"
       }
     });
 
     expect(status.service).toBe("api");
-    expect(status.claude.configured).toBe(false);
+    expect(status.agent.configured).toBe(false);
   });
 });

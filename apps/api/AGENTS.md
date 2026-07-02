@@ -11,7 +11,7 @@
 - Agent job intake 通过 `AgentJobIntake.enqueue(input)` 暴露给 route；BullMQ queue lifecycle 留在 `src/agent-job-intake.ts`。
 - 任务队列使用 BullMQ，并通过 `@agent-template/shared` 的队列名和 payload schema 保持类型一致。
 - 日志使用 `@agent-template/logger`。
-- Claude 配置状态通过 `@agent-template/agent` 读取，不在 API 内直接调用 SDK。
+- Agent runtime 状态通过 `@agent-template/agent` 读取，不在 API 内直接调用具体 runtime。
 
 ## 不应该做
 
@@ -19,6 +19,7 @@
 - 不在 API 内定义共享 schema；schema 放 `packages/shared`。
 - 不在 API 内创建独立 logger 抽象；logger 规则放 `packages/logger`。
 - 不让 Fastify route 直接知道 Redis URL、BullMQ `Queue.add` 或 queue close 细节。
+- 不从 request payload 覆盖 Agent runtime；runtime 只读环境变量 `AGENT_RUNTIME`。
 
 ## 健康检查
 

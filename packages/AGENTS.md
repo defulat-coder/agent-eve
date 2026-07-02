@@ -8,7 +8,9 @@
 - `shared`: Zod schema、共享类型和常量。
 - `db`: Prisma schema、Prisma Client 和数据库配置。
 - `logger`: Pino logger 统一配置。
-- `agent`: Claude Agent SDK 配置和加载边界。
+- `agent`: Agent runtime contract、selector 和公共入口。
+- `agent-claude`: Claude Agent SDK backed runtime。
+- `agent-eve`: Eve filesystem-first runtime 和 `agent/` authored surface。
 
 ## 开发规则
 
@@ -16,6 +18,7 @@
 - 共享类型优先从 `packages/shared` 导出。
 - 应用专属运行逻辑不要放 package。
 - package export 保持小而稳定，避免暴露内部文件路径。
+- `apps/*` 只通过 `@agent-template/agent` 使用 Agent runtime，不直接依赖 `agent-claude` 或 `agent-eve`。
 
 ## 验证
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defaultClaudeAgentModel } from "@agent-template/agent";
+import { AgentRuntimeNameSchema, defaultAgentRuntimeName, defaultClaudeAgentModel } from "@agent-template/agent";
 import { defaultDatabaseUrl } from "@agent-template/db/config";
 
 export const EnvSchema = z.object({
@@ -8,6 +8,7 @@ export const EnvSchema = z.object({
   REDIS_URL: z.string().url().default("redis://localhost:56379"),
   API_HOST: z.string().default("0.0.0.0"),
   API_PORT: z.coerce.number().int().positive().default(4000),
+  AGENT_RUNTIME: AgentRuntimeNameSchema.default(defaultAgentRuntimeName),
   ANTHROPIC_API_KEY: z.string().optional(),
   CLAUDE_AGENT_MODEL: z.string().default(defaultClaudeAgentModel)
 });

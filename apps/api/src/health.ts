@@ -1,4 +1,4 @@
-import { getAgentConfigStateFromEnv } from "@agent-template/agent";
+import { getAgentRuntimeStateFromEnv } from "@agent-template/agent";
 import { createHealthStatus, agentQueueName, type DependencyState, type HealthStatus } from "@agent-template/shared";
 import { createRedisPingConnection } from "./queue.js";
 import type { Env } from "./env.js";
@@ -98,6 +98,6 @@ export async function getHealth(env: Env, options: HealthOptions): Promise<Healt
       name: agentQueueName,
       status: redis.status === "error" ? "unavailable" : "ready"
     },
-    claude: getAgentConfigStateFromEnv(env)
+    agent: getAgentRuntimeStateFromEnv(env)
   });
 }

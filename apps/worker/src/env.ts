@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { defaultClaudeAgentModel } from "@agent-template/agent";
+import { AgentRuntimeNameSchema, defaultAgentRuntimeName, defaultClaudeAgentModel } from "@agent-template/agent";
 
 export const WorkerEnvSchema = z.object({
   REDIS_URL: z.string().url().default("redis://localhost:56379"),
+  AGENT_RUNTIME: AgentRuntimeNameSchema.default(defaultAgentRuntimeName),
   ANTHROPIC_API_KEY: z.string().optional(),
   CLAUDE_AGENT_MODEL: z.string().default(defaultClaudeAgentModel)
 });
