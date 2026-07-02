@@ -17,6 +17,7 @@
 - 共享代码优先放在 `packages/`，应用层只编排具体运行流程。
 - 不要把业务假设写死进模板；模板应保持可复用、低耦合。
 - 修改后按影响范围运行验证，最少运行对应 package 的 `lint`、`typecheck`、`test`。
+- 架构术语以 `CONTEXT.md` 为准；架构候选和执行记录维护在 `.scratch/architecture-review/backlog.md`。
 
 ## 常用命令
 
@@ -52,23 +53,8 @@ docker compose up -d
 - Codex 发现路径使用符号链接 `.codex/skills/<skill-name> -> ../../.agents/skills/<skill-name>`
 - 如果技能自带 Codex hook，再把 hook 配置安装到 `.codex/hooks.json`；已有 hook 时需要合并，不要直接覆盖。
 
-安装 GitHub 仓库中的技能目录时使用这个流程：
-
-```bash
-rm -rf /tmp/<skill-name>
-git clone --depth 1 --filter=blob:none --sparse <repo-url> /tmp/<skill-name>
-cd /tmp/<skill-name>
-git sparse-checkout set <path-to-skill>
-
-cd /Users/xbjt/Documents/myself/agent-template
-mkdir -p .agents/skills .codex/skills
-rm -rf .agents/skills/<skill-name> .codex/skills/<skill-name>
-cp -R /tmp/<skill-name>/<path-to-skill> .agents/skills/<skill-name>
-ln -s ../../.agents/skills/<skill-name> .codex/skills/<skill-name>
-test -f .codex/skills/<skill-name>/SKILL.md
-```
-
-如果上游技能文件内部硬编码了 `.agents/skills/<skill-name>/...` 路径，必须保留 `.agents` 作为真实路径，不能只放 `.codex`。
+- 安装 GitHub 技能时用 sparse checkout 拉取目标目录，复制到 `.agents/skills/<skill-name>`，再创建 `.codex/skills/<skill-name>` 符号链接并验证 `SKILL.md`。
+- 如果上游技能文件内部硬编码了 `.agents/skills/<skill-name>/...` 路径，必须保留 `.agents` 作为真实路径，不能只放 `.codex`。
 
 ## Agent skills
 
@@ -87,13 +73,19 @@ test -f .codex/skills/<skill-name>/SKILL.md
 ## 模块地图
 
 - `apps/web`: 用户界面和浏览器端体验。
-- `apps/api`: HTTP API、健康检查、任务入队。
-- `apps/worker`: BullMQ 后台任务消费。
+- `apps/api`: HTTP API、健康检查、Agent job intake 和任务入队。
+- `apps/worker`: BullMQ 后台任务消费、Worker runtime 装配和 payload validation。
 - `packages/ui`: 共享 React UI 组件和样式工具。
 - `packages/shared`: 前后端共享 Zod schema、类型和常量。
 - `packages/db`: Prisma schema、Prisma Client 和数据库配置。
 - `packages/logger`: Pino logger 封装。
 - `packages/agent`: Claude Agent SDK 配置和加载边界。
+
+## 架构规则
+
+- Agent job intake 的外部 seam 是 `AgentJobIntake.enqueue(input)`；Fastify route 不直接管理 Redis URL 或 BullMQ lifecycle。
+- Worker runtime 的 BullMQ event wiring 留在 Worker adapter implementation 内；测试穿过 `onCompleted` / `onFailed` 回调 interface。
+- Queue runtime 暂不抽成新 module；只有新增第三个 queue consumer、queue option 规则增长或 adapter 需要替换测试时再打开。
 
 ## 提交规则
 

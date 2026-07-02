@@ -8,6 +8,7 @@
 
 - HTTP 路由和 Fastify app 装配放在这里。
 - 数据库访问通过 `@agent-template/db`。
+- Agent job intake 通过 `AgentJobIntake.enqueue(input)` 暴露给 route；BullMQ queue lifecycle 留在 `src/agent-job-intake.ts`。
 - 任务队列使用 BullMQ，并通过 `@agent-template/shared` 的队列名和 payload schema 保持类型一致。
 - 日志使用 `@agent-template/logger`。
 - Claude 配置状态通过 `@agent-template/agent` 读取，不在 API 内直接调用 SDK。
@@ -17,6 +18,7 @@
 - 不在 API 内处理耗时 Agent job；只负责校验请求并入队。
 - 不在 API 内定义共享 schema；schema 放 `packages/shared`。
 - 不在 API 内创建独立 logger 抽象；logger 规则放 `packages/logger`。
+- 不让 Fastify route 直接知道 Redis URL、BullMQ `Queue.add` 或 queue close 细节。
 
 ## 健康检查
 
