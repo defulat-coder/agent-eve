@@ -9,7 +9,7 @@
 | completed | 收拢 Agent job intake module | Strong | API route 已穿过 `AgentJobIntake` interface，BullMQ lifecycle 留在 implementation 内 |
 | completed | 压窄 Worker runtime seam | Worth exploring | BullMQ event name 已留在 adapter 内，runtime 测试穿过回调 interface |
 | completed | 修正 Worker payload validation seam | Worth exploring | `handleAgentJob` interface 已接收 `unknown`，validation 留在 implementation 内 |
-| pending | 收拢 Queue runtime knowledge | Worth exploring | 等 queue 装配继续增长后再集中 Redis/BullMQ 规则 |
+| deferred | 收拢 Queue runtime knowledge | Worth exploring | 当前只有两个装配点；继续抽象会形成 shallow module |
 | deferred | 集中 Health display locality | Speculative | 等第二个页面或测试重复使用 health panel 映射 |
 
 ## 执行规则
@@ -40,3 +40,12 @@
 - locality：queued payload 的 trust check 集中在 `handleAgentJob` implementation。
 - leverage：调用方不需要假装 queue data 已经通过 schema。
 - 聚焦验证：`pnpm --filter @agent-template/worker lint`、`pnpm --filter @agent-template/worker typecheck`、`pnpm --filter @agent-template/worker test`
+
+## 暂缓
+
+### 收拢 Queue runtime knowledge
+
+- 日期：2026-07-02
+- deletion test：删除一个新 queue runtime module 只会把少量 BullMQ wiring 移回 API 和 Worker，不会集中足够 complexity。
+- seam 判断：当前只有 API queue adapter 和 Worker adapter 两个使用点，`createBullMqConnectionOptions` 已集中 Redis URL parsing。
+- 重新打开条件：新增第三个 queue consumer、queue option 规则继续增长，或 Redis/BullMQ adapter 需要被测试替换。
