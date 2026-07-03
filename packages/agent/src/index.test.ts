@@ -4,7 +4,8 @@ import {
   defaultClaudeAgentModel,
   defaultEveAgentModel,
   getAgentRuntimeStateFromEnv,
-  parseAgentRuntimeEnv
+  parseAgentRuntimeEnv,
+  runAgentJob
 } from "./index.js";
 
 describe("Agent runtime selector", () => {
@@ -34,5 +35,27 @@ describe("Agent runtime selector", () => {
       runtime: "eve",
       model: "eve-custom"
     });
+  });
+
+  it("runs an Agent job through the selected Agent runtime seam", async () => {
+    await expect(
+      runAgentJob(
+        {
+          prompt: "Summarize this template",
+          requestedAt: "2026-06-26T00:00:00.000Z"
+        },
+        { AGENT_RUNTIME: "eve", EVE_AGENT_MODEL: "eve-custom" }
+      )
+    ).resolves.toEqual({
+      accepted: true,
+      promptLength: 23,
+      runtime: "eve",
+      configured: true,
+      model: "eve-custom"
+    });
+  });
+
+  it("rejects invalid Agent job payloads at the Agent runtime seam", async () => {
+    await expect(runAgentJob({ prompt: "", requestedAt: "not-a-date" }, {})).rejects.toThrow();
   });
 });

@@ -19,7 +19,7 @@
 - 不直接定义共享任务 payload schema。
 - 不把不可测试的逻辑全部写在 `worker.ts`；进程装配和 job 处理要分开。
 - 不把 BullMQ event name 泄漏到 runtime 测试；测试通过回调 interface 验证 completed/failed 行为。
-- `handleAgentJob` 接收 `unknown` queued payload，并在 implementation 内完成 schema validation。
+- `handleAgentJob` 接收 `unknown` queued payload，并委派给 `@agent-template/agent` 的 Agent job execution seam。
 - 不直接依赖 `@agent-template/agent-claude` 或 `@agent-template/agent-eve`；通过公共 selector 选择 runtime。
 
 ## 验证

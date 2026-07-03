@@ -5,6 +5,7 @@ import {
   loadClaudeAgentSdk
 } from "@agent-template/agent-claude";
 import { defaultEveAgentModel, getEveAgentRuntimeStateFromEnv } from "@agent-template/agent-eve";
+import { AgentJobPayloadSchema } from "@agent-template/shared";
 
 export { defaultClaudeAgentModel, defaultEveAgentModel, loadClaudeAgentSdk };
 
@@ -22,6 +23,14 @@ export type AgentRuntimeName = z.infer<typeof AgentRuntimeNameSchema>;
 export type AgentRuntimeEnv = z.infer<typeof AgentRuntimeEnvSchema>;
 
 export type AgentRuntimeState = {
+  runtime: AgentRuntimeName;
+  configured: boolean;
+  model: string;
+};
+
+export type AgentJobResult = {
+  accepted: true;
+  promptLength: number;
   runtime: AgentRuntimeName;
   configured: boolean;
   model: string;
@@ -45,5 +54,18 @@ export function getAgentRuntimeStateFromEnv(input: Record<string, unknown>): Age
   return {
     runtime,
     ...getClaudeAgentRuntimeStateFromEnv(env)
+  };
+}
+
+export async function runAgentJob(payload: unknown, env: Record<string, unknown>): Promise<AgentJobResult> {
+  const parsed = AgentJobPayloadSchema.parse(payload);
+  const agentState = getAgentRuntimeStateFromEnv(env);
+
+  return {
+    accepted: true,
+    promptLength: parsed.prompt.length,
+    runtime: agentState.runtime,
+    configured: agentState.configured,
+    model: agentState.model
   };
 }

@@ -14,6 +14,7 @@
   "dependencies": {
     "@agent-template/agent-claude": "workspace:*",
     "@agent-template/agent-eve": "workspace:*",
+    "@agent-template/shared": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {

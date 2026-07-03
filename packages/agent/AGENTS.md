@@ -2,12 +2,13 @@
 
 ## 职责
 
-`packages/agent` 是 Agent runtime 公共边界，负责解析 `AGENT_RUNTIME` 并暴露 selector/contract。
+`packages/agent` 是 Agent runtime 公共边界，负责解析 runtime env、选择 runtime，并执行 Agent job 的公共 contract。
 
 ## 能力边界
 
 - `AgentRuntimeEnvSchema` / `parseAgentRuntimeEnv` 统一维护 Agent runtime 相关环境变量。
 - `getAgentRuntimeStateFromEnv` 返回当前 runtime、配置状态和模型。
+- `runAgentJob` 是 Worker 调用的 Agent job execution seam，负责 queued payload validation 和 runtime dispatch。
 - 具体实现委派给 `@agent-template/agent-claude` 或 `@agent-template/agent-eve`。
 
 ## 不应该做
