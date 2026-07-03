@@ -63,4 +63,13 @@ describe("submitAgentJob", () => {
       "Unable to reach Agent job intake API"
     );
   });
+
+  it("rejects invalid Agent job intake metadata from the backend", async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ id: "job-1" })
+    });
+
+    await expect(submitAgentJob({ prompt: "Run agent", fetcher })).rejects.toThrow();
+  });
 });

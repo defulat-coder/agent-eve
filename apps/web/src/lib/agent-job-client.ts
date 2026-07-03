@@ -1,7 +1,6 @@
-export type AgentJobAccepted = {
-  id?: string;
-  queue: string;
-};
+import { AgentJobAcceptedSchema, type AgentJobAccepted } from "@agent-template/shared";
+
+export type { AgentJobAccepted };
 
 type SubmitAgentJobOptions = {
   prompt: string;
@@ -39,5 +38,5 @@ export async function submitAgentJob({
     throw new Error(`Agent job intake rejected the request with status ${response.status}`);
   }
 
-  return (await response.json()) as AgentJobAccepted;
+  return AgentJobAcceptedSchema.parse(await response.json());
 }

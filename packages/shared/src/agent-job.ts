@@ -10,5 +10,11 @@ export const AgentJobPayloadSchema = z.object({
   requestedAt: z.string().datetime()
 });
 
+export const AgentJobAcceptedSchema = z.object({
+  id: z.string().optional(),
+  queue: z.string().min(1)
+});
+
 export type AgentJobName = z.infer<typeof AgentJobNameSchema>;
 export type AgentJobPayload = z.infer<typeof AgentJobPayloadSchema>;
+export type AgentJobAccepted = z.infer<typeof AgentJobAcceptedSchema>;

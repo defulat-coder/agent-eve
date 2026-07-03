@@ -7,9 +7,11 @@ export {
 } from "./health";
 export {
   AgentJobNameSchema,
+  AgentJobAcceptedSchema,
   AgentJobPayloadSchema,
   agentJobName,
   agentQueueName,
+  type AgentJobAccepted,
   type AgentJobName,
   type AgentJobPayload
 } from "./agent-job";
