@@ -6,7 +6,7 @@
 
 ## 能力边界
 
-- `parseAgentRuntimeConfig` 只读取 runtime 选择相关环境变量。
+- `AgentRuntimeEnvSchema` / `parseAgentRuntimeEnv` 统一维护 Agent runtime 相关环境变量。
 - `getAgentRuntimeStateFromEnv` 返回当前 runtime、配置状态和模型。
 - 具体实现委派给 `@agent-template/agent-claude` 或 `@agent-template/agent-eve`。
 

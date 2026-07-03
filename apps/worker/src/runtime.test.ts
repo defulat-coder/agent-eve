@@ -19,7 +19,12 @@ describe("createAgentWorkerRuntime", () => {
     let closed = false;
 
     const runtime = createAgentWorkerRuntime({
-      env: { REDIS_URL: "redis://localhost:56379", AGENT_RUNTIME: "claude", CLAUDE_AGENT_MODEL: "claude-sonnet-4-5" },
+      env: {
+        REDIS_URL: "redis://localhost:56379",
+        AGENT_RUNTIME: "claude",
+        CLAUDE_AGENT_MODEL: "claude-sonnet-4-5",
+        EVE_AGENT_MODEL: "eve-filesystem"
+      },
       logger: {
         info(data, message) {
           logs.push(["info", data, message]);

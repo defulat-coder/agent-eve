@@ -73,4 +73,13 @@ describe("getHealth", () => {
     expect(status.redis.message).toBe("Redis refused connection");
     expect(status.agent.runtime).toBe("claude");
   });
+
+  it("keeps Eve Agent runtime env config available after API env parsing", async () => {
+    const status = await getHealth(loadEnv({ NODE_ENV: "test", AGENT_RUNTIME: "eve", EVE_AGENT_MODEL: "eve-custom" }), {
+      checkExternal: false
+    });
+
+    expect(status.agent.runtime).toBe("eve");
+    expect(status.agent.model).toBe("eve-custom");
+  });
 });

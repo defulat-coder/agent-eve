@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { defaultAgentRuntimeName, defaultClaudeAgentModel, getAgentRuntimeStateFromEnv } from "./index.js";
+import {
+  defaultAgentRuntimeName,
+  defaultClaudeAgentModel,
+  defaultEveAgentModel,
+  getAgentRuntimeStateFromEnv,
+  parseAgentRuntimeEnv
+} from "./index.js";
 
 describe("Agent runtime selector", () => {
   it("defaults to the Claude Agent runtime", () => {
@@ -15,5 +21,18 @@ describe("Agent runtime selector", () => {
 
     expect(state.runtime).toBe("eve");
     expect(state.configured).toBe(true);
+  });
+
+  it("keeps runtime-specific env config behind the Agent runtime env interface", () => {
+    expect(parseAgentRuntimeEnv({})).toMatchObject({
+      AGENT_RUNTIME: defaultAgentRuntimeName,
+      CLAUDE_AGENT_MODEL: defaultClaudeAgentModel,
+      EVE_AGENT_MODEL: defaultEveAgentModel
+    });
+
+    expect(getAgentRuntimeStateFromEnv({ AGENT_RUNTIME: "eve", EVE_AGENT_MODEL: "eve-custom" })).toMatchObject({
+      runtime: "eve",
+      model: "eve-custom"
+    });
   });
 });
