@@ -11,10 +11,18 @@ export function readEveAgentModel(input: Record<string, unknown>): string {
     : defaultEveAgentModel;
 }
 
+export function readEveAnthropicBaseURL(input: Record<string, unknown>): string | undefined {
+  if (typeof input.ANTHROPIC_BASE_URL !== "string" || input.ANTHROPIC_BASE_URL.length === 0) {
+    return undefined;
+  }
+
+  return input.ANTHROPIC_BASE_URL.replace(/\/$/, "").endsWith("/v1")
+    ? input.ANTHROPIC_BASE_URL.replace(/\/$/, "")
+    : `${input.ANTHROPIC_BASE_URL.replace(/\/$/, "")}/v1`;
+}
+
 export function createEveAnthropicModel(input: Record<string, unknown>): AgentModelDefinition {
-  const baseURL = typeof input.ANTHROPIC_BASE_URL === "string" && input.ANTHROPIC_BASE_URL.length > 0
-    ? input.ANTHROPIC_BASE_URL
-    : undefined;
+  const baseURL = readEveAnthropicBaseURL(input);
   const authToken =
     typeof input.ANTHROPIC_API_KEY === "string" && input.ANTHROPIC_API_KEY.length > 0
       ? input.ANTHROPIC_API_KEY

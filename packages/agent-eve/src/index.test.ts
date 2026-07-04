@@ -5,6 +5,7 @@ import {
   eveAgentDirectory,
   getEveAgentRuntimeStateFromEnv,
   parseEveAgentConfig,
+  readEveAnthropicBaseURL,
   readEveAgentModel
 } from "./index.js";
 
@@ -41,6 +42,15 @@ describe("Eve Agent runtime", () => {
     const env = { ANTHROPIC_MODEL: "kimi-custom" };
 
     expect(getEveAgentRuntimeStateFromEnv(env).model).toBe(readEveAgentModel(env));
+  });
+
+  it("normalizes Anthropic-compatible base URL for the AI SDK provider", () => {
+    expect(readEveAnthropicBaseURL({ ANTHROPIC_BASE_URL: "https://api.kimi.com/coding/" })).toBe(
+      "https://api.kimi.com/coding/v1"
+    );
+    expect(readEveAnthropicBaseURL({ ANTHROPIC_BASE_URL: "https://api.kimi.com/coding/v1" })).toBe(
+      "https://api.kimi.com/coding/v1"
+    );
   });
 
   it("skips execution until an Eve Agent host is configured", async () => {

@@ -63,15 +63,21 @@ describe("Claude Agent runtime", () => {
           env: {
             ANTHROPIC_AUTH_TOKEN: "test-token",
             ANTHROPIC_BASE_URL: defaultAnthropicBaseUrl,
-            ANTHROPIC_DEFAULT_HAIKU_MODEL: "kimi-for-coding",
-            ANTHROPIC_DEFAULT_OPUS_MODEL: "kimi-for-coding",
-            ANTHROPIC_DEFAULT_SONNET_MODEL: "kimi-for-coding",
-            ANTHROPIC_MODEL: "kimi-for-coding",
-            CLAUDE_CODE_AUTO_COMPACT_WINDOW: "262144"
+            CLAUDE_CODE_AUTO_COMPACT_WINDOW: "262144",
+            CLAUDE_CONFIG_DIR: expect.any(String)
           },
-          model: "kimi-for-coding"
+          maxTurns: 1,
+          permissionMode: "dontAsk",
+          persistSession: false,
+          tools: []
         }
       }
     ]);
+
+    const subprocessEnv = (calls[0] as { options: { env: Record<string, string | undefined> } }).options.env;
+    expect(subprocessEnv).not.toHaveProperty("ANTHROPIC_DEFAULT_HAIKU_MODEL");
+    expect(subprocessEnv).not.toHaveProperty("ANTHROPIC_DEFAULT_OPUS_MODEL");
+    expect(subprocessEnv).not.toHaveProperty("ANTHROPIC_DEFAULT_SONNET_MODEL");
+    expect(subprocessEnv).not.toHaveProperty("ANTHROPIC_MODEL");
   });
 });

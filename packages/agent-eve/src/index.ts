@@ -3,7 +3,7 @@ import { Client, type MessageResult } from "eve/client";
 import { defaultEveAgentModel, readEveAgentModel } from "./config.js";
 
 export const eveAgentDirectory = "packages/agent-eve/agent";
-export { defaultEveAgentModel, readEveAgentModel };
+export { defaultEveAgentModel, readEveAgentModel, readEveAnthropicBaseURL } from "./config.js";
 
 export const EveAgentConfigSchema = z.object({
   host: z.string().min(1).optional(),

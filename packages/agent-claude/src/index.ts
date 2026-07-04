@@ -1,3 +1,6 @@
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { z } from "zod";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
@@ -92,7 +95,10 @@ export async function runClaudeAgentJob(
     options: {
       env: createClaudeAgentSubprocessEnv(config),
       maxTurns: 1,
-      model: config.model
+      permissionMode: "dontAsk",
+      persistSession: false,
+      tools: [],
+      ...(!config.baseUrl ? { model: config.model } : {})
     }
   })) {
     if ("session_id" in message) {
@@ -130,15 +136,32 @@ export async function runClaudeAgentJob(
 }
 
 function createClaudeAgentSubprocessEnv(config: ClaudeAgentConfig) {
-  return {
+  const claudeConfigDir = join(tmpdir(), "agent-template-claude-code");
+  mkdirSync(claudeConfigDir, { recursive: true });
+
+  const env = {
     ...process.env,
     CLAUDE_CODE_AUTO_COMPACT_WINDOW: "262144",
+    CLAUDE_CONFIG_DIR: claudeConfigDir,
     ...(config.apiKey ? { ANTHROPIC_API_KEY: config.apiKey } : {}),
     ...(config.authToken ? { ANTHROPIC_AUTH_TOKEN: config.authToken } : {}),
     ...(config.baseUrl ? { ANTHROPIC_BASE_URL: config.baseUrl } : {}),
-    ANTHROPIC_DEFAULT_HAIKU_MODEL: config.model,
-    ANTHROPIC_DEFAULT_OPUS_MODEL: config.model,
-    ANTHROPIC_DEFAULT_SONNET_MODEL: config.model,
-    ANTHROPIC_MODEL: config.model
+    ...(!config.baseUrl
+      ? {
+          ANTHROPIC_DEFAULT_HAIKU_MODEL: config.model,
+          ANTHROPIC_DEFAULT_OPUS_MODEL: config.model,
+          ANTHROPIC_DEFAULT_SONNET_MODEL: config.model,
+          ANTHROPIC_MODEL: config.model
+        }
+      : {})
   };
+
+  if (config.baseUrl) {
+    delete env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
+    delete env.ANTHROPIC_DEFAULT_OPUS_MODEL;
+    delete env.ANTHROPIC_DEFAULT_SONNET_MODEL;
+    delete env.ANTHROPIC_MODEL;
+  }
+
+  return env;
 }
