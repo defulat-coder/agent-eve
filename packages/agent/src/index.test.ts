@@ -56,7 +56,7 @@ describe("Agent runtime selector", () => {
         {
           runEve: async () => ({
             status: "completed",
-            events: [{ type: "message.completed" }],
+            events: [{ kind: "done", result: "Done" }],
             output: "Done",
             sessionId: "eve-session-1"
           })
@@ -69,7 +69,7 @@ describe("Agent runtime selector", () => {
       configured: true,
       model: "eve-custom",
       status: "completed",
-      events: [{ type: "message.completed" }],
+      events: [{ kind: "done", result: "Done" }],
       output: "Done",
       sessionId: "eve-session-1"
     });

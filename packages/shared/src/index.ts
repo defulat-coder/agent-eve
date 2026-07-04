@@ -18,7 +18,6 @@ export {
 export {
   AgentArtifactSchema,
   AgentRunEventSchema,
-  normalizeAgentRunEvent,
   type AgentArtifact,
   type AgentRunEvent
 } from "./agent-run-events";

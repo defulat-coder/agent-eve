@@ -15,6 +15,8 @@
 | completed | 接入真实 runtime execution adapter | Strong | `runAgentJob` dispatch 到 Claude/Eve runtime package；未配置返回 skipped |
 | completed | 删除 Worker job-handler pass-through | Worth exploring | Worker runtime 直接委派 `runAgentJob` |
 | completed | 建立 Agent run event producer seam | Speculative | runtime adapter 返回原始 events；streaming/store 暂不新增 |
+| completed | 收拢 Agent run event producer seam | Strong | Claude/Eve adapter 输出 shared `AgentRunEvent`，raw SDK events 留在 implementation 内 |
+| completed | 删除 legacy Agent run event normalizer | Strong | shared 只保留 `AgentRunEvent` schema/type；raw protocol mapping 留在 runtime adapter |
 | completed | Define shared Agent run event protocol | Worth exploring | Agent run event protocol 和 normalizer 已移入 `packages/shared` |
 | completed | Narrow Agent job HTTP contract duplication | Speculative | Agent job accepted metadata schema 已移入 `packages/shared`，Web/API 共用 |
 | deferred | 收拢 Queue runtime knowledge | Worth exploring | 当前只有两个装配点；继续抽象会形成 shallow module |
@@ -90,6 +92,21 @@
 - locality：runtime adapter 已经拿到的 Claude SDK messages 和 Eve stream events 通过 `AgentJobResult.events` 返回。
 - leverage：后续需要 UI timeline 时可从 job result/store 接入 shared event normalizer；当前不新增 streaming endpoint 或持久化 store。
 - 聚焦验证：`pnpm --filter @agent-template/agent test`、`pnpm --filter @agent-template/agent-eve test`、对应 typecheck
+
+### 收拢 Agent run event producer seam
+
+- 日期：2026-07-04
+- locality：Claude SDK messages 和 Eve stream events 不再穿过 `packages/agent` 泄漏到 Web；runtime adapter implementation 内映射为 shared `AgentRunEvent`。
+- leverage：Worker/Web 只面对 `AgentRunEvent` interface，测试可直接断言 shared protocol。
+- 聚焦验证：`pnpm --filter @agent-template/shared test`、`pnpm --filter @agent-template/agent-claude test`、`pnpm --filter @agent-template/agent-eve test`、`pnpm --filter @agent-template/agent test`、`pnpm --filter @agent-template/web test`，对应 typecheck，`pnpm lint`、`pnpm build`
+
+### 删除 legacy Agent run event normalizer
+
+- 日期：2026-07-05
+- deletion test：删除 `normalizeAgentRunEvent` 没有把 complexity 推回调用方；raw event mapping 已经由 runtime adapter implementation 承担。
+- locality：`packages/shared` 只维护 shared `AgentRunEvent` interface，不再知道旧 raw protocol。
+- leverage：Web 和 Worker 只依赖 schema/type；runtime adapter 测试覆盖 raw-to-shared 映射。
+- 聚焦验证：`pnpm --filter @agent-template/shared test`、`pnpm --filter @agent-template/shared typecheck`
 
 ### Define shared Agent run event protocol
 

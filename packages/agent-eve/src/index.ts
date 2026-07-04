@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Client, type MessageResult } from "eve/client";
+import type { AgentRunEvent } from "@agent-template/shared";
 import { defaultEveAgentModel, readEveAgentModel } from "./config.js";
 
 export const eveAgentDirectory = "packages/agent-eve/agent";
@@ -30,13 +31,13 @@ export type EveAgentJobRunResult =
     }
   | {
       status: "completed";
-      events: unknown[];
+      events: AgentRunEvent[];
       output: string;
       sessionId: string;
     }
   | {
       status: "failed";
-      events: unknown[];
+      events: AgentRunEvent[];
       reason: string;
       sessionId?: string;
     };
@@ -85,22 +86,42 @@ export async function runEveAgentJob(
   const result = await response.result();
 
   if (result.status === "failed") {
+    const reason = result.message ?? "Eve Agent runtime failed";
+
     return {
       status: "failed",
-      events: [...result.events],
-      reason: result.message ?? "Eve Agent runtime failed",
+      events: [...result.events.map(formatEveAgentEvent), { kind: "error", message: reason }],
+      reason,
       sessionId: result.sessionId
     };
   }
 
+  const output = result.message ?? formatEveOutput(result.data);
+
   return {
     status: "completed",
-    events: [...result.events],
-    output: result.message ?? formatEveOutput(result.data),
+    events: [...result.events.map(formatEveAgentEvent), { kind: "done", result: output }],
+    output,
     sessionId: result.sessionId
   };
 }
 
+function formatEveAgentEvent(event: unknown): AgentRunEvent {
+  if (!isRecord(event) || typeof event.type !== "string") {
+    return { kind: "unknown", text: formatEveOutput(event) };
+  }
+
+  if (event.type === "message.completed" && isRecord(event.data) && typeof event.data.message === "string") {
+    return { kind: "text", text: event.data.message };
+  }
+
+  return { kind: "unknown", text: formatEveOutput(event) };
+}
+
 function formatEveOutput(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value) ?? "";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

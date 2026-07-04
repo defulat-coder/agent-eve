@@ -96,16 +96,8 @@ describe("Eve Agent runtime", () => {
     ).resolves.toEqual({
       status: "completed",
       events: [
-        {
-          data: {
-            finishReason: "stop",
-            message: "Done",
-            sequence: 1,
-            stepIndex: 0,
-            turnId: "turn-1"
-          },
-          type: "message.completed"
-        }
+        { kind: "text", text: "Done" },
+        { kind: "done", result: "Done" }
       ],
       output: "Done",
       sessionId: "eve-session-1"

@@ -1,11 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { normalizeAgentRunEvent, type AgentArtifact, type AgentRunEvent } from "@agent-template/shared";
+import { useState } from "react";
+import type { AgentArtifact, AgentRunEvent } from "@agent-template/shared";
 
-export function AgentRunTimeline({ events }: { events: unknown[] }) {
-  const normalizedEvents = useMemo(() => events.map(normalizeAgentRunEvent), [events]);
-
+export function AgentRunTimeline({ events }: { events: AgentRunEvent[] }) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex flex-col gap-1">
@@ -13,9 +11,9 @@ export function AgentRunTimeline({ events }: { events: unknown[] }) {
         <p className="text-sm text-slate-500">等待后端运行事件接口接入后展示 tool call、结果和 artifact。</p>
       </div>
 
-      {normalizedEvents.length ? (
+      {events.length ? (
         <div className="mt-4 flex flex-col gap-3">
-          {normalizedEvents.map((event, index) => (
+          {events.map((event, index) => (
             <AgentRunEventRow event={event} key={`${event.kind}-${index}`} />
           ))}
         </div>

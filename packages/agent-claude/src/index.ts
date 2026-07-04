@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { AgentRunEvent } from "@agent-template/shared";
 
 export const defaultClaudeAgentModel = "kimi-for-coding";
 export const defaultAnthropicBaseUrl = "https://api.kimi.com/coding/";
@@ -32,13 +33,13 @@ export type ClaudeAgentJobRunResult =
     }
   | {
       status: "completed";
-      events: SDKMessage[];
+      events: AgentRunEvent[];
       output: string;
       sessionId?: string;
     }
   | {
       status: "failed";
-      events: SDKMessage[];
+      events: AgentRunEvent[];
       reason: string;
       sessionId?: string;
     };
@@ -115,7 +116,10 @@ export async function runClaudeAgentJob(
   if (!result) {
     return {
       status: "failed",
-      events,
+      events: [
+        ...events.flatMap(formatClaudeAgentProgressEvent),
+        { kind: "error", message: "Claude Agent SDK did not return a result" }
+      ],
       reason: "Claude Agent SDK did not return a result",
       ...(sessionId ? { sessionId } : {})
     };
@@ -123,16 +127,30 @@ export async function runClaudeAgentJob(
 
   if (result.subtype !== "success" || result.is_error) {
     const reason = "errors" in result ? result.errors.join("\n") : result.result;
+    const message = reason || "Claude Agent SDK run failed";
 
     return {
       status: "failed",
-      events,
-      reason: reason || "Claude Agent SDK run failed",
+      events: [...events.flatMap(formatClaudeAgentProgressEvent), { kind: "error", message }],
+      reason: message,
       ...(sessionId ? { sessionId } : {})
     };
   }
 
-  return { status: "completed", events, output: result.result, ...(sessionId ? { sessionId } : {}) };
+  return {
+    status: "completed",
+    events: [...events.flatMap(formatClaudeAgentProgressEvent), { kind: "done", result: result.result }],
+    output: result.result,
+    ...(sessionId ? { sessionId } : {})
+  };
+}
+
+function formatClaudeAgentProgressEvent(message: SDKMessage): AgentRunEvent[] {
+  if (message.type === "result") {
+    return [];
+  }
+
+  return [{ kind: "unknown", text: JSON.stringify(message) ?? String(message) }];
 }
 
 function createClaudeAgentSubprocessEnv(config: ClaudeAgentConfig) {

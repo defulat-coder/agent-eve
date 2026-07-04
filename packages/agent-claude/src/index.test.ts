@@ -53,6 +53,7 @@ describe("Claude Agent runtime", () => {
         }
       )
     ).resolves.toMatchObject({
+      events: [{ kind: "done", result: "Done" }],
       output: "Done",
       status: "completed"
     });

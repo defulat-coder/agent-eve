@@ -12,7 +12,7 @@ import {
   parseEveAgentConfig,
   runEveAgentJob
 } from "@agent-template/agent-eve";
-import { AgentJobPayloadSchema } from "@agent-template/shared";
+import { AgentJobPayloadSchema, type AgentRunEvent } from "@agent-template/shared";
 
 export { defaultClaudeAgentModel, defaultEveAgentModel, loadClaudeAgentSdk };
 
@@ -46,7 +46,7 @@ export type AgentJobResult = {
   configured: boolean;
   model: string;
   status: "skipped" | "completed" | "failed";
-  events?: unknown[];
+  events?: AgentRunEvent[];
   output?: string;
   reason?: string;
   sessionId?: string;

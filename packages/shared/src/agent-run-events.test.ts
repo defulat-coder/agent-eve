@@ -1,52 +1,38 @@
 import { describe, expect, it } from "vitest";
-import { AgentRunEventSchema, normalizeAgentRunEvent } from "./agent-run-events";
+import { AgentRunEventSchema } from "./agent-run-events";
 
-describe("normalizeAgentRunEvent", () => {
-  it("normalizes known Agent run events into the shared protocol", () => {
-    expect(normalizeAgentRunEvent({ type: "tool:call", tool: "search", input: { q: "agentcn" } })).toEqual({
+describe("AgentRunEventSchema", () => {
+  it("accepts the shared Agent run event protocol", () => {
+    expect(
+      AgentRunEventSchema.parse({
+        kind: "tool-call",
+        tool: "search",
+        input: "{\"q\":\"agentcn\"}"
+      })
+    ).toEqual({
       kind: "tool-call",
       tool: "search",
       input: "{\"q\":\"agentcn\"}"
     });
-    expect(normalizeAgentRunEvent({ type: "tool:result", tool: "search" })).toEqual({
+    expect(AgentRunEventSchema.parse({ kind: "tool-result", tool: "search" })).toEqual({
       kind: "tool-result",
       tool: "search"
     });
-    expect(normalizeAgentRunEvent({ type: "text:delta", text: "hello" })).toEqual({
-      kind: "text",
-      text: "hello"
-    });
-    expect(normalizeAgentRunEvent({ type: "done", result: { ok: true } })).toEqual({
-      kind: "done",
-      result: "{\n  \"ok\": true\n}"
-    });
+    expect(AgentRunEventSchema.parse({ kind: "text", text: "hello" })).toEqual({ kind: "text", text: "hello" });
+    expect(AgentRunEventSchema.parse({ kind: "done", result: "ok" })).toEqual({ kind: "done", result: "ok" });
   });
 
-  it("normalizes error and artifact events into the shared protocol", () => {
-    const artifacts = normalizeAgentRunEvent({
-      type: "artifacts",
+  it("accepts error, artifact, and unknown events", () => {
+    const artifacts = AgentRunEventSchema.parse({
+      kind: "artifacts",
       tabs: [{ id: "summary", label: "Summary", hint: "md", content: "# Done" }]
     });
 
-    expect(normalizeAgentRunEvent({ type: "error", message: "failed" })).toEqual({
-      kind: "error",
-      message: "failed"
-    });
+    expect(AgentRunEventSchema.parse({ kind: "error", message: "failed" })).toEqual({ kind: "error", message: "failed" });
     expect(artifacts).toEqual({
       kind: "artifacts",
       tabs: [{ id: "summary", label: "Summary", hint: "md", content: "# Done" }]
     });
-    expect(AgentRunEventSchema.parse(artifacts)).toEqual(artifacts);
-  });
-
-  it("keeps unknown Agent run events visible", () => {
-    expect(normalizeAgentRunEvent({ type: "custom:event", value: 1 })).toEqual({
-      kind: "unknown",
-      text: "{\"type\":\"custom:event\",\"value\":1}"
-    });
-    expect(normalizeAgentRunEvent(undefined)).toEqual({
-      kind: "unknown",
-      text: "undefined"
-    });
+    expect(AgentRunEventSchema.parse({ kind: "unknown", text: "raw event" })).toEqual({ kind: "unknown", text: "raw event" });
   });
 });
