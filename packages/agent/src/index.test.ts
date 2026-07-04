@@ -35,7 +35,7 @@ describe("Agent runtime selector", () => {
     expect(
       getAgentRuntimeStateFromEnv({
         AGENT_RUNTIME: "eve",
-        EVE_AGENT_HOST: "http://127.0.0.1:3000",
+        EVE_AGENT_HOST: "http://127.0.0.1:13000",
         EVE_AGENT_MODEL: "eve-custom"
       })
     ).toMatchObject({
@@ -53,7 +53,7 @@ describe("Agent runtime selector", () => {
         {
           prompt: "Summarize this template",
         },
-        { AGENT_RUNTIME: "eve", EVE_AGENT_HOST: "http://127.0.0.1:3000", EVE_AGENT_MODEL: "eve-custom" },
+        { AGENT_RUNTIME: "eve", EVE_AGENT_HOST: "http://127.0.0.1:13000", EVE_AGENT_MODEL: "eve-custom" },
         {
           runEve: async (_input, _config, options) => {
             options?.onEvent?.({ kind: "text", text: "Working" });

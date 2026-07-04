@@ -11,6 +11,7 @@
 - `runAgent` 是 Chat SSE 和 Worker 共同调用的 Agent run execution seam，负责 run input validation、runtime dispatch 和 execution result assembly。
 - 具体实现委派给 `@agent-template/agent-claude` 或 `@agent-template/agent-eve`。
 - runtime adapter 已产生的 Agent run event 通过 `AgentRunResult.events` 透出；这里不新增持久化。
+- Toolbox 连接信息只作为 Tool provider 配置透传；不要在公共 selector 内读取 `apps/toolbox/tools.yaml` 或持有数据库凭据。
 
 ## 不应该做
 
@@ -20,6 +21,7 @@
 - 不从 request payload 或 job payload 覆盖 runtime；runtime 只读 `AGENT_RUNTIME`。
 - 不要求本地开发必须配置 `ANTHROPIC_API_KEY`。
 - 不把未配置 runtime 伪装成已执行成功；返回 `status: "skipped"`。
+- 不把 Toolbox server 当成第三套 Agent runtime；它是 Cloud/Eve runtime 可选择消费的 Tool provider。
 
 ## 验证
 

@@ -98,6 +98,11 @@ export async function getHealth(env: Env, options: HealthOptions): Promise<Healt
       name: agentQueueName,
       status: redis.status === "error" ? "unavailable" : "ready"
     },
-    agent: getAgentRuntimeStateFromEnv(env)
+    agent: getAgentRuntimeStateFromEnv(env),
+    toolbox: {
+      configured: Boolean(env.TOOLBOX_URL && env.TOOLBOX_TOOLSET),
+      url: env.TOOLBOX_URL,
+      toolset: env.TOOLBOX_TOOLSET
+    }
   });
 }

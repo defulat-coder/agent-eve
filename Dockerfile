@@ -22,4 +22,4 @@ COPY . .
 
 RUN pnpm db:generate && pnpm build
 
-EXPOSE 3000 4000
+EXPOSE 13000 14000

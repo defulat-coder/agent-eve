@@ -9,7 +9,7 @@
 - 使用 App Router，页面入口在 `app/`。
 - 共享 UI 组件从 `@agent-template/ui` 引入。
 - 共享类型和响应 schema 从 `@agent-template/shared` 引入。
-- API base URL 使用 `NEXT_PUBLIC_API_BASE_URL`，默认 `http://localhost:4000`。
+- API base URL 使用 `NEXT_PUBLIC_API_BASE_URL`，默认 `http://localhost:14000`。
 
 ## 不应该做
 

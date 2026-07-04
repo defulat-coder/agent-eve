@@ -24,6 +24,18 @@ _Avoid_: Agent work, job result
 An event emitted while an Agent runtime executes an Agent run.
 _Avoid_: UI timeline item, log line
 
+**Tool provider**:
+An external capability source that exposes tools an Agent run may use.
+_Avoid_: Agent runtime, app service
+
+**Toolbox server**:
+A Tool provider backed by MCP Toolbox for Databases.
+_Avoid_: Database helper, embedded database client
+
+**Toolbox toolset**:
+A named group of Toolbox server tools that an Agent runtime may load for a specific Agent capability.
+_Avoid_: Runtime plugin, database permission set
+
 **Claude Agent runtime**:
 A Claude Agent SDK backed Agent runtime.
 _Avoid_: Cloud runtime, Claude path

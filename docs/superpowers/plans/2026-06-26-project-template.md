@@ -34,7 +34,7 @@
 
 **Interfaces:**
 - Produces root scripts: `dev`, `build`, `lint`, `typecheck`, `test`, `db:generate`, `db:migrate`.
-- Produces local services: PostgreSQL on host port `55432`, Redis on host port `56379`.
+- Produces local services: PostgreSQL on host port `15432`, Redis on host port `16379`.
 
 - [x] Create root workspace manifests and Docker Compose infrastructure.
 - [x] Install dependencies and generate `pnpm-lock.yaml`.
@@ -98,8 +98,8 @@ pnpm build
 ```bash
 pnpm --filter @agent-template/api dev
 pnpm --filter @agent-template/web dev
-curl -sS http://localhost:4000/health
-curl -sS -I http://localhost:3000
+curl -sS http://localhost:14000/health
+curl -sS -I http://localhost:13000
 ```
 
 - [x] `pnpm db:generate` passes with Prisma 7.

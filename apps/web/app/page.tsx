@@ -22,7 +22,7 @@ export default async function Home() {
                 <a href="/agent">打开 Agent 控制台</a>
               </Button>
               <Button asChild>
-                <a href="http://localhost:4000/health">查看 API Health</a>
+                <a href="http://localhost:14000/health">查看 API Health</a>
               </Button>
             </div>
           </div>

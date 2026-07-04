@@ -9,7 +9,7 @@
 - `prisma/schema.prisma` 是数据模型来源。
 - `prisma.config.ts` 管理 Prisma 7 datasource 配置。
 - `src/index.ts` 导出可复用 Prisma Client。
-- 默认数据库连接使用 `localhost:55432`，避免和本机默认 PostgreSQL 冲突。
+- 默认数据库连接使用 `localhost:15432`，避免和本机默认 PostgreSQL 冲突。
 
 ## 不应该做
 

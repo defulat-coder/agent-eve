@@ -5,7 +5,7 @@ describe("createAgentJobIntake", () => {
   it("validates, enqueues, and closes the Agent job queue", async () => {
     const calls: unknown[] = [];
     const intake = createAgentJobIntake({
-      redisUrl: "redis://localhost:56379",
+      redisUrl: "redis://localhost:16379",
       createQueue: (redisUrl) => {
         calls.push(["createQueue", redisUrl]);
 
@@ -28,7 +28,7 @@ describe("createAgentJobIntake", () => {
 
     expect(result).toEqual({ id: "job-1", queue: "agent-jobs" });
     expect(calls).toEqual([
-      ["createQueue", "redis://localhost:56379"],
+      ["createQueue", "redis://localhost:16379"],
       [
         "add",
         "agent.run",

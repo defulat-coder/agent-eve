@@ -4,6 +4,8 @@ x-runtime-environment: &runtime-environment
   NODE_ENV: production
   DATABASE_URL: postgresql://project_template:project_template@postgres:5432/project_template?schema=public
   REDIS_URL: redis://redis:6379
+  TOOLBOX_URL: http://toolbox:15000
+  TOOLBOX_TOOLSET: agent_template_read_model
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:-}
   ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.kimi.com/coding/}
@@ -34,7 +36,7 @@ services:
       POSTGRES_PASSWORD: project_template
       POSTGRES_DB: project_template
     ports:
-      - "55432:5432"
+      - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -47,7 +49,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "56379:6379"
+      - "16379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -56,17 +58,54 @@ services:
       timeout: 3s
       retries: 10
 
+  toolbox:
+    image: us-central1-docker.pkg.dev/database-toolbox/toolbox/toolbox:1.6.0
+    restart: unless-stopped
+    command:
+      [
+        "--address",
+        "0.0.0.0",
+        "--port",
+        "15000",
+        "--allowed-hosts",
+        "localhost,localhost:15000,127.0.0.1,127.0.0.1:15000,toolbox,toolbox:15000",
+        "--allowed-origins",
+        "http://localhost:13000,http://localhost:14000",
+        "--config",
+        "/app/tools.yaml"
+      ]
+    environment:
+      TOOLBOX_POSTGRES_HOST: postgres
+      TOOLBOX_POSTGRES_PORT: 5432
+      TOOLBOX_POSTGRES_DATABASE: project_template
+      TOOLBOX_POSTGRES_USER: project_template
+      TOOLBOX_POSTGRES_PASSWORD: project_template
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "15000:15000"
+    volumes:
+      - ./apps/toolbox/tools.yaml:/app/tools.yaml:ro
+
   api:
     <<: *app-service
     command: pnpm --filter @agent-template/api start
     environment:
       <<: *runtime-environment
       API_HOST: 0.0.0.0
-      API_PORT: 4000
+      API_PORT: 14000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      toolbox:
+        condition: service_started
     ports:
-      - "4000:4000"
+      - "14000:14000"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:4000/health >/dev/null"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:14000/health >/dev/null"]
       interval: 10s
       timeout: 3s
       retries: 10
@@ -76,18 +115,25 @@ services:
     command: pnpm --filter @agent-template/worker start
     environment:
       <<: *runtime-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      toolbox:
+        condition: service_started
 
   web:
     <<: *app-service
     command: pnpm --filter @agent-template/web start
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_BASE_URL: http://api:4000
+      NEXT_PUBLIC_API_BASE_URL: http://api:14000
     depends_on:
       api:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "13000:13000"
 
 volumes:
   postgres_data:

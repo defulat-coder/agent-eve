@@ -20,6 +20,11 @@ describe("GET /health", () => {
     expect(body.redis.status).toBe("skipped");
     expect(body.agent.runtime).toBe("claude");
     expect(body.agent.configured).toBe(false);
+    expect(body.toolbox).toEqual({
+      configured: true,
+      url: "http://localhost:15000",
+      toolset: "agent_template_read_model"
+    });
   });
 });
 
@@ -106,6 +111,7 @@ describe("getHealth", () => {
     expect(status.queue.status).toBe("unavailable");
     expect(status.redis.message).toBe("Redis refused connection");
     expect(status.agent.runtime).toBe("claude");
+    expect(status.toolbox.toolset).toBe("agent_template_read_model");
   });
 
   it("keeps Eve Agent runtime env config available after API env parsing", async () => {
@@ -113,7 +119,7 @@ describe("getHealth", () => {
       loadEnv({
         NODE_ENV: "test",
         AGENT_RUNTIME: "eve",
-        EVE_AGENT_HOST: "http://127.0.0.1:3000",
+        EVE_AGENT_HOST: "http://127.0.0.1:13000",
         EVE_AGENT_MODEL: "eve-custom"
       }),
       {

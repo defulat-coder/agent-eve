@@ -18,10 +18,10 @@ describe("Eve Agent runtime", () => {
   });
 
   it("is configured when the Eve Agent host is set", () => {
-    const state = getEveAgentRuntimeStateFromEnv({ EVE_AGENT_HOST: "http://127.0.0.1:3000" });
+    const state = getEveAgentRuntimeStateFromEnv({ EVE_AGENT_HOST: "http://127.0.0.1:13000" });
 
     expect(state.configured).toBe(true);
-    expect(state.host).toBe("http://127.0.0.1:3000");
+    expect(state.host).toBe("http://127.0.0.1:13000");
   });
 
   it("depends on the latest official eve package", () => {

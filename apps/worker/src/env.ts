@@ -2,7 +2,7 @@ import { z } from "zod";
 import { AgentRuntimeEnvSchema } from "@agent-template/agent";
 
 export const WorkerEnvSchema = AgentRuntimeEnvSchema.extend({
-  REDIS_URL: z.string().url().default("redis://localhost:56379")
+  REDIS_URL: z.string().url().default("redis://localhost:16379")
 });
 
 export type WorkerEnv = z.infer<typeof WorkerEnvSchema>;

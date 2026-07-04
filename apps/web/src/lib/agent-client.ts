@@ -21,7 +21,7 @@ type StreamAgentChatOptions = SubmitAgentJobOptions & {
 
 export async function submitAgentJob({
   prompt,
-  baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
+  baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:14000",
   fetcher = fetch
 }: SubmitAgentJobOptions): Promise<AgentJobAccepted> {
   const trimmedPrompt = prompt.trim();
@@ -54,7 +54,7 @@ export async function submitAgentJob({
 
 export async function streamAgentChat({
   prompt,
-  baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000",
+  baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:14000",
   fetcher = fetch,
   onEvent
 }: StreamAgentChatOptions): Promise<AgentRunResult> {

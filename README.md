@@ -1,11 +1,11 @@
 # Agent Template
 
-一个基于 pnpm Workspace 和 Turborepo 的 TypeScript 项目模板，包含 Next.js 前端、Fastify API、BullMQ Worker、Prisma/PostgreSQL、Redis、Claude Agent SDK、Zod、Pino 和 Vitest。
+一个基于 pnpm Workspace 和 Turborepo 的 TypeScript 项目模板，包含 Next.js 前端、Fastify API、BullMQ Worker、Prisma/PostgreSQL、Redis、MCP Toolbox、Claude Agent SDK、Zod、Pino 和 Vitest。
 
 ## 技术栈
 
 - 前端：pnpm + TypeScript + Next.js + React + Tailwind CSS + shadcn/ui + Vitest
-- 后端：TypeScript + Fastify + Prisma + PostgreSQL + Redis + BullMQ + Claude Agent SDK + Zod + Pino + Vitest
+- 后端：TypeScript + Fastify + Prisma + PostgreSQL + Redis + BullMQ + MCP Toolbox + Claude Agent SDK + Zod + Pino + Vitest
 - 工程化：pnpm Workspace + Turborepo
 
 ## 快速开始
@@ -20,11 +20,12 @@ pnpm dev
 
 默认服务：
 
-- Web: http://localhost:3000
-- API: http://localhost:4000
-- Health: http://localhost:4000/health
-- PostgreSQL: localhost:55432
-- Redis: localhost:56379
+- Web: http://localhost:13000
+- API: http://localhost:14000
+- Health: http://localhost:14000/health
+- PostgreSQL: localhost:15432
+- Redis: localhost:16379
+- MCP Toolbox: http://localhost:15000
 
 ## 常用命令
 
@@ -45,6 +46,7 @@ apps/
   web/       Next.js + React + Tailwind CSS
   api/       Fastify HTTP API
   worker/    BullMQ 后台任务进程
+  toolbox/   MCP Toolbox tools.yaml
 packages/
   ui/            shadcn/ui 风格共享组件
   db/            Prisma schema 和 Prisma Client
@@ -54,6 +56,8 @@ packages/
   agent-eve/     Eve runtime
   shared/        共享 Zod schema 和 TypeScript 类型
 ```
+
+`apps/toolbox/tools.yaml` 定义生产 Agent 可加载的数据库工具。默认 toolset 是 `agent_template_read_model`，只包含 `TemplateEvent` 的只读查询；prebuilt generic tools 仅用于开发期探索，不作为生产 Agent 默认能力。
 
 Kimi Code 通过 Anthropic-compatible 协议接入两套 Agent runtime：
 

@@ -23,10 +23,16 @@ describe("createHealthStatus", () => {
         runtime: "claude",
         configured: false,
         model: "kimi-for-coding"
+      },
+      toolbox: {
+        configured: true,
+        url: "http://localhost:15000",
+        toolset: "agent_template_read_model"
       }
     });
 
     expect(status.service).toBe("api");
     expect(status.agent.configured).toBe(false);
+    expect(status.toolbox.toolset).toBe("agent_template_read_model");
   });
 });

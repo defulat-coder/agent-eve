@@ -11,7 +11,7 @@ export type HealthResult =
     };
 
 export async function fetchHealth(): Promise<HealthResult> {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:4000";
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:14000";
 
   try {
     const response = await fetch(`${baseUrl}/health`, {

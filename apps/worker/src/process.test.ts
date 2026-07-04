@@ -20,7 +20,7 @@ describe("createAgentWorkerProcess", () => {
 
     const workerProcess = createAgentWorkerProcess({
       env: {
-        REDIS_URL: "redis://localhost:56379",
+        REDIS_URL: "redis://localhost:16379",
         AGENT_RUNTIME: "claude",
         ANTHROPIC_MODEL: "kimi-for-coding",
         CLAUDE_AGENT_MODEL: "kimi-for-coding",

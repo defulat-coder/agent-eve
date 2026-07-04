@@ -9,6 +9,7 @@
 - Web: Next.js + React + Tailwind CSS + shadcn/ui 风格组件 + Vitest
 - API: Fastify + Prisma + PostgreSQL + Redis + BullMQ + Zod + Pino + Vitest
 - Worker: BullMQ 后台任务处理 + 可选 Agent runtime
+- Toolbox: MCP Toolbox for Databases，作为独立 Agent Tool provider
 
 ## 通用规则
 
@@ -35,10 +36,11 @@ pnpm db:migrate
 
 ## 本地服务
 
-- Web: `http://localhost:3000`
-- API: `http://localhost:4000`
-- PostgreSQL: `localhost:55432`
-- Redis: `localhost:56379`
+- Web: `http://localhost:13000`
+- API: `http://localhost:14000`
+- MCP Toolbox: `http://localhost:15000`
+- PostgreSQL: `localhost:15432`
+- Redis: `localhost:16379`
 
 启动本地依赖：
 
@@ -76,6 +78,7 @@ docker compose up -d
 - `apps/web`: 用户界面和浏览器端体验。
 - `apps/api`: HTTP API、健康检查、Agent job intake 和任务入队。
 - `apps/worker`: BullMQ 后台任务消费和 Worker runtime 装配。
+- `apps/toolbox`: MCP Toolbox `tools.yaml` 和数据库 Tool provider 配置。
 - `packages/ui`: 共享 React UI 组件和样式工具。
 - `packages/shared`: 前后端共享 Zod schema、类型和常量。
 - `packages/db`: Prisma schema、Prisma Client 和数据库配置。
@@ -91,10 +94,12 @@ docker compose up -d
 - Agent runtime 只通过环境变量 `AGENT_RUNTIME=claude|eve` 选择；不要从 job payload 覆盖 runtime。
 - Kimi Code 接入 Cloud 和 Eve 时都使用 Anthropic-compatible 协议：`ANTHROPIC_BASE_URL=https://api.kimi.com/coding/`、`ANTHROPIC_MODEL=kimi-for-coding`。
 - Kimi API Key 只放本地 `.env` 或部署环境变量 `ANTHROPIC_API_KEY`，不要写入 `.env.example`、文档或测试。
-- `runAgentJob` 是 Agent job execution seam；它负责 payload validation、runtime dispatch 和 execution result assembly。
+- `runAgent` 是 Agent run execution seam；它负责 payload validation、runtime dispatch 和 execution result assembly。
 - 未配置的 runtime 返回 `status: "skipped"` 和原因，不伪装成已执行成功。
 - Eve execution adapter 通过 `EVE_AGENT_HOST` 连接官方 Eve HTTP API；`EVE_AGENT_MODEL` 同时驱动 runtime state 和 `agent/agent.ts`。
-- Agent run event producer seam 在 runtime adapter 返回值上：`AgentJobResult.events` 只传递 runtime 已产生的原始事件；不要提前新增 streaming endpoint 或持久化 store。
+- Agent run event producer seam 在 runtime adapter 返回值和 SSE 回调上：runtime 只发出自己产生的 Agent run event，API 负责把 Chat SSE 格式化给前端。
+- Toolbox server 是独立 Tool provider；生产 Agent 默认只加载 `apps/toolbox/tools.yaml` 中显式声明的自定义 toolset，不使用 prebuilt generic tools 或任意 SQL 执行工具。
+- `TOOLBOX_URL` 和 `TOOLBOX_TOOLSET` 只表达 Tool provider 连接信息，不参与 `AGENT_RUNTIME` 选择。
 - `apps/*` 只依赖 `@agent-template/agent` 的公共 runtime 边界，不直接依赖具体 runtime package。
 - Queue runtime 暂不抽成新 module；只有新增第三个 queue consumer、queue option 规则增长或 adapter 需要替换测试时再打开。
 

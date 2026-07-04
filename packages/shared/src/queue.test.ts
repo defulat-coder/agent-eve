@@ -3,9 +3,9 @@ import { createBullMqConnectionOptions } from "./queue.js";
 
 describe("createBullMqConnectionOptions", () => {
   it("parses Redis URLs for BullMQ", () => {
-    expect(createBullMqConnectionOptions("redis://user:pass@localhost:56379/2")).toEqual({
+    expect(createBullMqConnectionOptions("redis://user:pass@localhost:16379/2")).toEqual({
       host: "localhost",
-      port: 56379,
+      port: 16379,
       username: "user",
       password: "pass",
       db: 2,

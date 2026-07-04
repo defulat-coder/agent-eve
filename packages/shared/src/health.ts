@@ -19,6 +19,11 @@ export const HealthStatusSchema = z.object({
     runtime: z.enum(["claude", "eve"]),
     configured: z.boolean(),
     model: z.string()
+  }),
+  toolbox: z.object({
+    configured: z.boolean(),
+    url: z.string().url(),
+    toolset: z.string().min(1)
   })
 });
 
