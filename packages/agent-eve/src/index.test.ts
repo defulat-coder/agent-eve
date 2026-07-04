@@ -54,19 +54,19 @@ describe("Eve Agent runtime", () => {
   });
 
   it("skips execution until an Eve Agent host is configured", async () => {
-    const { runEveAgentJob } = await import("./index.js");
+    const { runEveAgent } = await import("./index.js");
 
-    await expect(runEveAgentJob({ prompt: "Summarize this template" }, parseEveAgentConfig({}))).resolves.toEqual({
+    await expect(runEveAgent({ prompt: "Summarize this template" }, parseEveAgentConfig({}))).resolves.toEqual({
       status: "skipped",
       reason: "EVE_AGENT_HOST is not configured"
     });
   });
 
   it("runs through the Eve client when configured", async () => {
-    const { runEveAgentJob } = await import("./index.js");
+    const { runEveAgent } = await import("./index.js");
 
     await expect(
-      runEveAgentJob({ prompt: "Summarize this template" }, parseEveAgentConfig({ EVE_AGENT_HOST: "http://eve.local" }), {
+      runEveAgent({ prompt: "Summarize this template" }, parseEveAgentConfig({ EVE_AGENT_HOST: "http://eve.local" }), {
         createClient: () => ({
           session: () => ({
             send: async () => ({

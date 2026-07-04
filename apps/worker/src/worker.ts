@@ -1,5 +1,5 @@
 import { loadWorkerEnv } from "./env.js";
-import { createAgentWorkerRuntime, registerWorkerShutdown } from "./runtime.js";
+import { createAgentWorkerProcess, registerWorkerShutdown } from "./process.js";
 
-const runtime = createAgentWorkerRuntime({ env: loadWorkerEnv() });
-registerWorkerShutdown(runtime);
+const workerProcess = createAgentWorkerProcess({ env: loadWorkerEnv() });
+registerWorkerShutdown(workerProcess);

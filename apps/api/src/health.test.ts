@@ -56,6 +56,40 @@ describe("POST /agent/jobs", () => {
   });
 });
 
+describe("POST /agent/chat", () => {
+  it("streams Agent events and the final result", async () => {
+    const app = buildApp({
+      env: loadEnv({ NODE_ENV: "test" }),
+      async runAgent(input, _env, options) {
+        options?.onEvent?.({ kind: "text", text: "Working" });
+
+        return {
+          configured: true,
+          events: [{ kind: "text", text: "Working" }, { kind: "done", result: "Done" }],
+          model: "kimi-for-coding",
+          output: "Done",
+          promptLength: (input as { prompt: string }).prompt.length,
+          runtime: "claude",
+          status: "completed"
+        };
+      }
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/agent/chat",
+      payload: {
+        prompt: "Run agent"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/event-stream");
+    expect(response.body).toContain('event: agent-event\ndata: {"kind":"text","text":"Working"}');
+    expect(response.body).toContain('event: result\ndata: {"configured":true');
+  });
+});
+
 describe("getHealth", () => {
   it("aggregates adapter results through the Health interface", async () => {
     const status = await getHealth(loadEnv({ NODE_ENV: "test" }), {

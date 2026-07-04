@@ -1,11 +1,11 @@
 import { Worker } from "bullmq";
-import { runAgentJob, type AgentJobResult } from "@agent-template/agent";
+import { runAgent, type AgentRunResult } from "@agent-template/agent";
 import { createLogger } from "@agent-template/logger";
 import { agentQueueName, type AgentJobPayload } from "@agent-template/shared";
 import { createBullMqConnectionOptions } from "@agent-template/shared/node";
 import type { WorkerEnv } from "./env.js";
 
-type RuntimeLogger = {
+type ProcessLogger = {
   info(data: unknown, message: string): void;
   error(data: unknown, message: string): void;
 };
@@ -22,21 +22,21 @@ type AgentWorker = {
 
 type CreateWorkerOptions = {
   env: WorkerEnv;
-  logger: RuntimeLogger;
-  processJob(job: AgentJob): Promise<AgentJobResult>;
+  logger: ProcessLogger;
+  processJob(job: AgentJob): Promise<AgentRunResult>;
   onCompleted(job: AgentJob): void;
   onFailed(job: AgentJob | undefined, error: Error): void;
 };
 
-export type AgentWorkerRuntime = {
+export type AgentWorkerProcess = {
   close(): Promise<void>;
 };
 
-export type CreateAgentWorkerRuntimeOptions = {
+export type CreateAgentWorkerProcessOptions = {
   env: WorkerEnv;
-  logger?: RuntimeLogger;
+  logger?: ProcessLogger;
   createWorker?: (options: CreateWorkerOptions) => AgentWorker;
-  processJob?: (payload: AgentJobPayload, env: WorkerEnv) => Promise<AgentJobResult>;
+  processJob?: (payload: AgentJobPayload, env: WorkerEnv) => Promise<AgentRunResult>;
 };
 
 function createBullMqWorker(options: CreateWorkerOptions): AgentWorker {
@@ -50,12 +50,12 @@ function createBullMqWorker(options: CreateWorkerOptions): AgentWorker {
   return worker;
 }
 
-export function createAgentWorkerRuntime(options: CreateAgentWorkerRuntimeOptions): AgentWorkerRuntime {
+export function createAgentWorkerProcess(options: CreateAgentWorkerProcessOptions): AgentWorkerProcess {
   const logger = options.logger ?? createLogger({ service: "worker" });
   const processJob =
     options.processJob ??
     ((payload, env) => {
-      return runAgentJob(payload, env);
+      return runAgent(payload, env);
     });
   const worker = (options.createWorker ?? createBullMqWorker)({
     env: options.env,
@@ -79,8 +79,8 @@ export function createAgentWorkerRuntime(options: CreateAgentWorkerRuntimeOption
   };
 }
 
-export function registerWorkerShutdown(runtime: AgentWorkerRuntime, signalTarget: NodeJS.Process = process): void {
+export function registerWorkerShutdown(workerProcess: AgentWorkerProcess, signalTarget: NodeJS.Process = process): void {
   signalTarget.on("SIGTERM", async () => {
-    await runtime.close();
+    await workerProcess.close();
   });
 }

@@ -2,22 +2,25 @@
 
 import { FormEvent, useState } from "react";
 import { Button } from "@agent-template/ui";
-import { submitAgentJob, type AgentJobAccepted } from "@/lib/agent-job-client";
+import type { AgentRunEvent, AgentRunResult } from "@agent-template/shared";
+import { streamAgentChat } from "@/lib/agent-client";
 import { AgentRunTimeline } from "./agent-run-timeline";
 
-type AgentConsoleStatus = "idle" | "submitting" | "accepted" | "failed";
+type AgentConsoleStatus = "idle" | "submitting" | "running" | "completed" | "skipped" | "failed";
 
 export function AgentConsole() {
   const [prompt, setPrompt] = useState("");
-  const [acceptedJob, setAcceptedJob] = useState<AgentJobAccepted | null>(null);
+  const [events, setEvents] = useState<AgentRunEvent[]>([]);
+  const [result, setResult] = useState<AgentRunResult | null>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState<AgentConsoleStatus>("idle");
-  const submitting = status === "submitting";
+  const submitting = status === "submitting" || status === "running";
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    setAcceptedJob(null);
+    setEvents([]);
+    setResult(null);
 
     if (!prompt.trim()) {
       setError("请输入 Agent 请求。");
@@ -27,10 +30,19 @@ export function AgentConsole() {
 
     setStatus("submitting");
     try {
-      setAcceptedJob(await submitAgentJob({ prompt }));
-      setStatus("accepted");
+      const chatResult = await streamAgentChat({
+        prompt,
+        onEvent(event) {
+          setEvents((current) => [...current, event]);
+          setStatus("running");
+        }
+      });
+
+      setResult(chatResult);
+      setEvents(chatResult.events ?? []);
+      setStatus(chatResult.status === "skipped" ? "skipped" : chatResult.status);
     } catch (caught) {
-      setError(getAgentJobErrorMessage(caught));
+      setError(getAgentChatErrorMessage(caught));
       setStatus("failed");
     }
   }
@@ -49,61 +61,67 @@ export function AgentConsole() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Button disabled={submitting} type="submit">
-          {submitting ? "提交中..." : status === "failed" ? "重试提交" : "提交 Agent job"}
+          {submitting ? "运行中..." : status === "failed" ? "重试" : "发送给 Agent"}
         </Button>
         <p aria-live="polite" className={status === "failed" ? "text-sm text-red-600" : "text-sm text-slate-500"}>
           {getStatusText(status, error)}
         </p>
       </div>
 
-      {acceptedJob ? (
+      {result ? (
         <section className="rounded-md border border-slate-200 bg-white p-4">
-          <p className="text-sm font-medium text-green-700">Agent job 已接受</p>
-          <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-            <div>
-              <dt className="text-slate-500">Job ID</dt>
-              <dd className="mt-1 break-words font-medium text-slate-950">{acceptedJob.id ?? "未返回"}</dd>
-            </div>
-            <div>
-              <dt className="text-slate-500">Queue</dt>
-              <dd className="mt-1 break-words font-medium text-slate-950">{acceptedJob.queue}</dd>
-            </div>
-          </dl>
+          <p className={result.status === "failed" ? "text-sm font-medium text-red-700" : "text-sm font-medium text-green-700"}>
+            Agent 回复
+          </p>
+          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-950">
+            {result.output ?? result.reason ?? "Agent 未返回内容。"}
+          </p>
+          <p className="mt-3 text-xs text-slate-500">
+            Runtime: {result.runtime} / Model: {result.model}
+          </p>
         </section>
       ) : null}
 
-      <AgentRunTimeline events={[]} />
+      <AgentRunTimeline events={events} />
     </form>
   );
 }
 
 function getStatusText(status: AgentConsoleStatus, error: string) {
   if (status === "submitting") {
-    return "正在提交到 Agent job intake...";
+    return "正在连接 Agent Chat...";
   }
 
-  if (status === "accepted") {
-    return "后端已接受 Agent job。";
+  if (status === "running") {
+    return "Agent 正在执行。";
+  }
+
+  if (status === "completed") {
+    return "Agent 已完成回复。";
+  }
+
+  if (status === "skipped") {
+    return "Agent runtime 未配置，未执行。";
   }
 
   if (status === "failed") {
     return error;
   }
 
-  return "准备提交新的 Agent job。";
+  return "准备开始新的 Agent run。";
 }
 
-function getAgentJobErrorMessage(caught: unknown) {
+function getAgentChatErrorMessage(caught: unknown) {
   if (!(caught instanceof Error)) {
-    return "提交 Agent job 失败，请重试。";
+    return "启动 Agent run 失败，请重试。";
   }
 
-  if (caught.message.startsWith("Agent job intake rejected the request with status ")) {
-    return `后端拒绝了 Agent job 请求（状态码 ${caught.message.split(" ").at(-1)}）。`;
+  if (caught.message.startsWith("Agent chat rejected the request with status ")) {
+    return `后端拒绝了 Agent Chat 请求（状态码 ${caught.message.split(" ").at(-1)}）。`;
   }
 
-  if (caught.message === "Unable to reach Agent job intake API") {
-    return "无法连接 Agent job intake API，请检查网络或后端服务。";
+  if (caught.message === "Unable to reach Agent chat API") {
+    return "无法连接 Agent Chat API，请检查网络或后端服务。";
   }
 
   return caught.message;

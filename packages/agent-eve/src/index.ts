@@ -20,11 +20,11 @@ export type EveAgentRuntimeState = {
   host?: string;
 };
 
-export type EveAgentJobInput = {
+export type EveAgentRunInput = {
   prompt: string;
 };
 
-export type EveAgentJobRunResult =
+export type EveAgentRunResult =
   | {
       status: "skipped";
       reason: string;
@@ -70,13 +70,14 @@ export function getEveAgentRuntimeStateFromEnv(input: Record<string, unknown>): 
   return getEveAgentRuntimeState(parseEveAgentConfig(input));
 }
 
-export async function runEveAgentJob(
-  input: EveAgentJobInput,
+export async function runEveAgent(
+  input: EveAgentRunInput,
   config: EveAgentConfig,
   options: {
     createClient?: (host: string) => EveClient;
+    onEvent?: (event: AgentRunEvent) => void;
   } = {}
-): Promise<EveAgentJobRunResult> {
+): Promise<EveAgentRunResult> {
   if (!config.host) {
     return { status: "skipped", reason: "EVE_AGENT_HOST is not configured" };
   }
@@ -84,23 +85,28 @@ export async function runEveAgentJob(
   const client = (options.createClient ?? ((host: string) => new Client({ host })))(config.host);
   const response = await client.session().send(input.prompt);
   const result = await response.result();
+  const events = result.events.map(formatEveAgentEvent);
 
   if (result.status === "failed") {
     const reason = result.message ?? "Eve Agent runtime failed";
+    const event = { kind: "error", message: reason } satisfies AgentRunEvent;
+    [...events, event].forEach((runEvent) => options.onEvent?.(runEvent));
 
     return {
       status: "failed",
-      events: [...result.events.map(formatEveAgentEvent), { kind: "error", message: reason }],
+      events: [...events, event],
       reason,
       sessionId: result.sessionId
     };
   }
 
   const output = result.message ?? formatEveOutput(result.data);
+  const event = { kind: "done", result: output } satisfies AgentRunEvent;
+  [...events, event].forEach((runEvent) => options.onEvent?.(runEvent));
 
   return {
     status: "completed",
-    events: [...result.events.map(formatEveAgentEvent), { kind: "done", result: output }],
+    events: [...events, event],
     output,
     sessionId: result.sessionId
   };

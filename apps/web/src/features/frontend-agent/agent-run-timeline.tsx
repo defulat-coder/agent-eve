@@ -8,7 +8,7 @@ export function AgentRunTimeline({ events }: { events: AgentRunEvent[] }) {
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex flex-col gap-1">
         <h2 className="text-base font-semibold text-slate-950">运行事件</h2>
-        <p className="text-sm text-slate-500">等待后端运行事件接口接入后展示 tool call、结果和 artifact。</p>
+        <p className="text-sm text-slate-500">来自当前 Agent Chat SSE 连接的运行事件。</p>
       </div>
 
       {events.length ? (

@@ -7,13 +7,16 @@
 | 状态 | 议题 | 强度 | 下一步 |
 | --- | --- | --- | --- |
 | completed | 收拢 Agent job intake module | Strong | API route 已穿过 `AgentJobIntake` interface，BullMQ lifecycle 留在 implementation 内 |
-| completed | 压窄 Worker runtime seam | Worth exploring | BullMQ event name 已留在 adapter 内，runtime 测试穿过回调 interface |
+| completed | 压窄 Worker process seam | Worth exploring | BullMQ event name 已留在 adapter 内，process 测试穿过回调 interface |
 | completed | 修正 Worker payload validation seam | Worth exploring | `handleAgentJob` interface 已接收 `unknown`，validation 留在 implementation 内 |
 | completed | 集中 Agent runtime env config seam | Strong | Agent runtime env 由 `packages/agent` 统一维护，API/Worker env module 只组合该 seam |
-| completed | Deepen Agent runtime execution module | Strong | `runAgentJob` 已成为 Worker 调用的 Agent job execution seam |
+| completed | Deepen Agent runtime execution module | Strong | `runAgent` 已成为 Chat SSE 和 Worker 共同调用的 Agent run execution seam |
+| completed | 引入 Agent run，收窄 Agent job | Strong | `Agent job` 只表示 queued request；Chat SSE 和 Worker 共用 `Agent run` interface |
+| completed | 拆清 Web Agent client 命名 | Worth exploring | `agent-job-client` 已改为 `agent-client`，同时覆盖 Chat SSE 和 queued job intake |
+| completed | 减少 Worker runtime 与 Agent runtime 重名 | Worth exploring | Worker 侧改称 `AgentWorkerProcess`；`runtime` 留给 Agent implementation selector |
 | completed | 收拢 Eve Agent runtime model 来源 | Strong | `src/config.ts` 同时驱动 runtime state 和 `agent/agent.ts` |
-| completed | 接入真实 runtime execution adapter | Strong | `runAgentJob` dispatch 到 Claude/Eve runtime package；未配置返回 skipped |
-| completed | 删除 Worker job-handler pass-through | Worth exploring | Worker runtime 直接委派 `runAgentJob` |
+| completed | 接入真实 runtime execution adapter | Strong | `runAgent` dispatch 到 Claude/Eve runtime package；未配置返回 skipped |
+| completed | 删除 Worker job-handler pass-through | Worth exploring | Worker process 直接委派 `runAgent` |
 | completed | 建立 Agent run event producer seam | Speculative | runtime adapter 返回原始 events；streaming/store 暂不新增 |
 | completed | 收拢 Agent run event producer seam | Strong | Claude/Eve adapter 输出 shared `AgentRunEvent`，raw SDK events 留在 implementation 内 |
 | completed | 删除 legacy Agent run event normalizer | Strong | shared 只保留 `AgentRunEvent` schema/type；raw protocol mapping 留在 runtime adapter |
@@ -37,11 +40,11 @@
 - leverage：route-level 测试可替换 `AgentJobIntake` adapter。
 - 聚焦验证：`pnpm --filter @agent-template/api lint`、`pnpm --filter @agent-template/api typecheck`、`pnpm --filter @agent-template/api test`
 
-### 压窄 Worker runtime seam
+### 压窄 Worker process seam
 
 - 日期：2026-07-02
 - locality：BullMQ event name 留在 Worker adapter implementation 内。
-- leverage：runtime 测试穿过 `onCompleted` / `onFailed` 回调 interface，不再模拟 `.on("completed")`。
+- leverage：process 测试穿过 `onCompleted` / `onFailed` 回调 interface，不再模拟 `.on("completed")`。
 - 聚焦验证：`pnpm --filter @agent-template/worker lint`、`pnpm --filter @agent-template/worker typecheck`、`pnpm --filter @agent-template/worker test`
 
 ### 修正 Worker payload validation seam
@@ -61,9 +64,30 @@
 ### Deepen Agent runtime execution module
 
 - 日期：2026-07-04
-- locality：Agent job payload validation、runtime dispatch、execution result assembly 和 runtime adapter 调用集中到 `packages/agent` 的 `runAgentJob`。
-- leverage：Worker 只穿过一个 Agent job execution seam；Claude/Eve execution 差异留在各自 runtime package。
+- locality：Agent run input validation、runtime dispatch、execution result assembly 和 runtime adapter 调用集中到 `packages/agent` 的 `runAgent`。
+- leverage：Chat SSE 和 Worker 只穿过一个 Agent run execution seam；Claude/Eve execution 差异留在各自 runtime package。
 - 聚焦验证：`pnpm --filter @agent-template/agent test`、`pnpm --filter @agent-template/agent typecheck`、`pnpm --filter @agent-template/worker test`、`pnpm --filter @agent-template/worker typecheck`
+
+### 引入 Agent run，收窄 Agent job
+
+- 日期：2026-07-05
+- locality：`Agent job` 只保留 queued request 和 BullMQ intake；`Agent run` 表示一次 Agent 执行。
+- leverage：Chat SSE 和 Worker 共用 `runAgent` interface，不再把非队列 Chat 路径伪装成 job。
+- 聚焦验证：`pnpm --filter @agent-template/shared test`、`pnpm --filter @agent-template/agent test`、`pnpm --filter @agent-template/api test`、`pnpm --filter @agent-template/web test`
+
+### 拆清 Web Agent client 命名
+
+- 日期：2026-07-05
+- locality：Web transport module 名称从 `agent-job-client` 改为 `agent-client`，不再把 Chat SSE 路径误标成 queued job。
+- leverage：Chat SSE 和 queued job intake 仍共享一个浏览器 client module；不提前拆两个 shallow module。
+- 聚焦验证：`pnpm --filter @agent-template/web test`、`pnpm --filter @agent-template/web typecheck`、`pnpm --filter @agent-template/web lint`
+
+### 减少 Worker runtime 与 Agent runtime 重名
+
+- 日期：2026-07-05
+- locality：Worker process lifecycle module 改为 `process.ts` / `AgentWorkerProcess`，`runtime` 只表示 Agent runtime selector。
+- leverage：Worker process 和 Agent runtime 在 AGENTS 导航、测试和 public interface 中不再撞词。
+- 聚焦验证：`pnpm --filter @agent-template/worker test`、`pnpm --filter @agent-template/worker typecheck`
 
 ### 收拢 Eve Agent runtime model 来源
 
@@ -82,15 +106,15 @@
 ### 删除 Worker job-handler pass-through
 
 - 日期：2026-07-04
-- deletion test：删除 `apps/worker/src/job-handler.ts` 没有把 complexity 推回多个调用方；Worker runtime 直接委派 `runAgentJob` 更深。
-- leverage：Worker 测试保留在 `createAgentWorkerRuntime` interface，不再重复测试 Agent runtime selector。
+- deletion test：删除 `apps/worker/src/job-handler.ts` 没有把 complexity 推回多个调用方；Worker process 直接委派 `runAgent` 更深。
+- leverage：Worker 测试保留在 `createAgentWorkerProcess` interface，不再重复测试 Agent runtime selector。
 - 聚焦验证：`pnpm --filter @agent-template/worker test`、`pnpm --filter @agent-template/worker typecheck`
 
 ### 建立 Agent run event producer seam
 
 - 日期：2026-07-04
-- locality：runtime adapter 已经拿到的 Claude SDK messages 和 Eve stream events 通过 `AgentJobResult.events` 返回。
-- leverage：后续需要 UI timeline 时可从 job result/store 接入 shared event normalizer；当前不新增 streaming endpoint 或持久化 store。
+- locality：runtime adapter 已经拿到的 Claude SDK messages 和 Eve stream events 通过 `AgentRunResult.events` 返回。
+- leverage：后续需要 UI timeline 时可从 run result/store 接入 shared event normalizer；当前不新增 streaming endpoint 或持久化 store。
 - 聚焦验证：`pnpm --filter @agent-template/agent test`、`pnpm --filter @agent-template/agent-eve test`、对应 typecheck
 
 ### 收拢 Agent run event producer seam

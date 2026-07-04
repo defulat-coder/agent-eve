@@ -3,7 +3,7 @@ import {
   defaultAnthropicBaseUrl,
   defaultClaudeAgentModel,
   getClaudeAgentRuntimeStateFromEnv,
-  runClaudeAgentJob
+  runClaudeAgent
 } from "./index.js";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
@@ -19,7 +19,7 @@ describe("Claude Agent runtime", () => {
     const calls: unknown[] = [];
 
     await expect(
-      runClaudeAgentJob(
+      runClaudeAgent(
         { prompt: "Summarize this template" },
         {
           authToken: "test-token",

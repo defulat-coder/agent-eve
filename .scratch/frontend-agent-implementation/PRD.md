@@ -16,7 +16,7 @@ Status: ready-for-agent
 
 ## User Stories
 
-1. As a user, I want to open a dedicated Agent page, so that I can run Agent work from the Web app.
+1. As a user, I want to open a dedicated Agent page, so that I can start an Agent run from the Web app.
 2. As a user, I want to enter a prompt, so that I can describe the work I want the Agent to perform.
 3. As a user, I want to submit my prompt from the browser, so that the existing backend can create an Agent job.
 4. As a user, I want to see whether my Agent job was accepted, so that I know the request reached the backend.

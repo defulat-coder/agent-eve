@@ -5,7 +5,7 @@ import {
   defaultEveAgentModel,
   getAgentRuntimeStateFromEnv,
   parseAgentRuntimeEnv,
-  runAgentJob
+  runAgent
 } from "./index.js";
 
 describe("Agent runtime selector", () => {
@@ -45,37 +45,52 @@ describe("Agent runtime selector", () => {
     });
   });
 
-  it("runs an Agent job through the selected Agent runtime seam", async () => {
+  it("runs an Agent run through the selected Agent runtime seam", async () => {
+    const events: unknown[] = [];
+
     await expect(
-      runAgentJob(
+      runAgent(
         {
           prompt: "Summarize this template",
-          requestedAt: "2026-06-26T00:00:00.000Z"
         },
         { AGENT_RUNTIME: "eve", EVE_AGENT_HOST: "http://127.0.0.1:3000", EVE_AGENT_MODEL: "eve-custom" },
         {
-          runEve: async () => ({
-            status: "completed",
-            events: [{ kind: "done", result: "Done" }],
-            output: "Done",
-            sessionId: "eve-session-1"
-          })
+          runEve: async (_input, _config, options) => {
+            options?.onEvent?.({ kind: "text", text: "Working" });
+
+            return {
+              status: "completed",
+              events: [
+                { kind: "text", text: "Working" },
+                { kind: "done", result: "Done" }
+              ],
+              output: "Done",
+              sessionId: "eve-session-1"
+            };
+          },
+          onEvent(event) {
+            events.push(event);
+          }
         }
       )
     ).resolves.toEqual({
-      accepted: true,
       promptLength: 23,
       runtime: "eve",
       configured: true,
       model: "eve-custom",
       status: "completed",
-      events: [{ kind: "done", result: "Done" }],
+      events: [
+        { kind: "text", text: "Working" },
+        { kind: "done", result: "Done" }
+      ],
       output: "Done",
       sessionId: "eve-session-1"
     });
+
+    expect(events).toEqual([{ kind: "text", text: "Working" }]);
   });
 
-  it("rejects invalid Agent job payloads at the Agent runtime seam", async () => {
-    await expect(runAgentJob({ prompt: "", requestedAt: "not-a-date" }, {})).rejects.toThrow();
+  it("rejects invalid Agent run input at the Agent runtime seam", async () => {
+    await expect(runAgent({ prompt: "" }, {})).rejects.toThrow();
   });
 });

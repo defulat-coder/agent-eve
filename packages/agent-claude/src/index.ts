@@ -22,11 +22,11 @@ export type ClaudeAgentRuntimeState = {
   model: string;
 };
 
-export type ClaudeAgentJobInput = {
+export type ClaudeAgentRunInput = {
   prompt: string;
 };
 
-export type ClaudeAgentJobRunResult =
+export type ClaudeAgentRunResult =
   | {
       status: "skipped";
       reason: string;
@@ -75,19 +75,20 @@ type ClaudeAgentSdk = {
   }): AsyncIterable<SDKMessage>;
 };
 
-export async function runClaudeAgentJob(
-  input: ClaudeAgentJobInput,
+export async function runClaudeAgent(
+  input: ClaudeAgentRunInput,
   config: ClaudeAgentConfig,
   options: {
     loadSdk?: () => Promise<ClaudeAgentSdk>;
+    onEvent?: (event: AgentRunEvent) => void;
   } = {}
-): Promise<ClaudeAgentJobRunResult> {
+): Promise<ClaudeAgentRunResult> {
   if (!config.apiKey && !config.authToken) {
     return { status: "skipped", reason: "ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN is not configured" };
   }
 
   const sdk = await (options.loadSdk ?? loadClaudeAgentSdk)();
-  const events: SDKMessage[] = [];
+  const runEvents: AgentRunEvent[] = [];
   let result: Extract<SDKMessage, { type: "result" }> | undefined;
   let sessionId: string | undefined;
 
@@ -106,7 +107,10 @@ export async function runClaudeAgentJob(
       sessionId = message.session_id;
     }
 
-    events.push(message);
+    for (const event of formatClaudeAgentProgressEvent(message)) {
+      runEvents.push(event);
+      options.onEvent?.(event);
+    }
 
     if (message.type === "result") {
       result = message;
@@ -114,12 +118,12 @@ export async function runClaudeAgentJob(
   }
 
   if (!result) {
+    const event = { kind: "error", message: "Claude Agent SDK did not return a result" } satisfies AgentRunEvent;
+    options.onEvent?.(event);
+
     return {
       status: "failed",
-      events: [
-        ...events.flatMap(formatClaudeAgentProgressEvent),
-        { kind: "error", message: "Claude Agent SDK did not return a result" }
-      ],
+      events: [...runEvents, event],
       reason: "Claude Agent SDK did not return a result",
       ...(sessionId ? { sessionId } : {})
     };
@@ -128,18 +132,23 @@ export async function runClaudeAgentJob(
   if (result.subtype !== "success" || result.is_error) {
     const reason = "errors" in result ? result.errors.join("\n") : result.result;
     const message = reason || "Claude Agent SDK run failed";
+    const event = { kind: "error", message } satisfies AgentRunEvent;
+    options.onEvent?.(event);
 
     return {
       status: "failed",
-      events: [...events.flatMap(formatClaudeAgentProgressEvent), { kind: "error", message }],
+      events: [...runEvents, event],
       reason: message,
       ...(sessionId ? { sessionId } : {})
     };
   }
 
+  const event = { kind: "done", result: result.result } satisfies AgentRunEvent;
+  options.onEvent?.(event);
+
   return {
     status: "completed",
-    events: [...events.flatMap(formatClaudeAgentProgressEvent), { kind: "done", result: result.result }],
+    events: [...runEvents, event],
     output: result.result,
     ...(sessionId ? { sessionId } : {})
   };

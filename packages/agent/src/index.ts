@@ -4,17 +4,18 @@ import {
   getClaudeAgentRuntimeStateFromEnv,
   loadClaudeAgentSdk,
   parseClaudeAgentConfig,
-  runClaudeAgentJob
+  runClaudeAgent
 } from "@agent-template/agent-claude";
 import {
   defaultEveAgentModel,
   getEveAgentRuntimeStateFromEnv,
   parseEveAgentConfig,
-  runEveAgentJob
+  runEveAgent
 } from "@agent-template/agent-eve";
-import { AgentJobPayloadSchema, type AgentRunEvent } from "@agent-template/shared";
+import { AgentRunInputSchema, type AgentRunEvent, type AgentRunResult } from "@agent-template/shared";
 
 export { defaultClaudeAgentModel, defaultEveAgentModel, loadClaudeAgentSdk };
+export type { AgentRunResult };
 
 export const defaultAgentRuntimeName = "claude";
 export const AgentRuntimeNameSchema = z.enum(["claude", "eve"]);
@@ -39,22 +40,10 @@ export type AgentRuntimeState = {
   model: string;
 };
 
-export type AgentJobResult = {
-  accepted: true;
-  promptLength: number;
-  runtime: AgentRuntimeName;
-  configured: boolean;
-  model: string;
-  status: "skipped" | "completed" | "failed";
-  events?: AgentRunEvent[];
-  output?: string;
-  reason?: string;
-  sessionId?: string;
-};
-
-export type RunAgentJobOptions = {
-  runClaude?: typeof runClaudeAgentJob;
-  runEve?: typeof runEveAgentJob;
+export type RunAgentOptions = {
+  runClaude?: typeof runClaudeAgent;
+  runEve?: typeof runEveAgent;
+  onEvent?: (event: AgentRunEvent) => void;
 };
 
 export function parseAgentRuntimeEnv(input: Record<string, unknown>): AgentRuntimeEnv {
@@ -78,21 +67,21 @@ export function getAgentRuntimeStateFromEnv(input: Record<string, unknown>): Age
   };
 }
 
-export async function runAgentJob(
-  payload: unknown,
+export async function runAgent(
+  input: unknown,
   env: Record<string, unknown>,
-  options: RunAgentJobOptions = {}
-): Promise<AgentJobResult> {
-  const parsed = AgentJobPayloadSchema.parse(payload);
+  options: RunAgentOptions = {}
+): Promise<AgentRunResult> {
+  const parsed = AgentRunInputSchema.parse(input);
   const runtimeEnv = parseAgentRuntimeEnv(env);
   const agentState = getAgentRuntimeStateFromEnv(runtimeEnv);
+  const eventOptions = options.onEvent ? { onEvent: options.onEvent } : {};
   const run =
     agentState.runtime === "eve"
-      ? await (options.runEve ?? runEveAgentJob)(parsed, parseEveAgentConfig(runtimeEnv))
-      : await (options.runClaude ?? runClaudeAgentJob)(parsed, parseClaudeAgentConfig(runtimeEnv));
+      ? await (options.runEve ?? runEveAgent)(parsed, parseEveAgentConfig(runtimeEnv), eventOptions)
+      : await (options.runClaude ?? runClaudeAgent)(parsed, parseClaudeAgentConfig(runtimeEnv), eventOptions);
 
   return {
-    accepted: true,
     promptLength: parsed.prompt.length,
     runtime: agentState.runtime,
     configured: agentState.configured,

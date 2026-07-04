@@ -15,6 +15,7 @@ export {
   type AgentJobName,
   type AgentJobPayload
 } from "./agent-job";
+export { AgentRunInputSchema, AgentRunResultSchema, type AgentRunInput, type AgentRunResult } from "./agent-run";
 export {
   AgentArtifactSchema,
   AgentRunEventSchema,

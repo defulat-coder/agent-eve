@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { createAgentWorkerRuntime } from "./runtime.js";
+import { createAgentWorkerProcess } from "./process.js";
 import type { AgentJobPayload } from "@agent-template/shared";
 
-describe("createAgentWorkerRuntime", () => {
+describe("createAgentWorkerProcess", () => {
   it("assembles worker processing, events, and shutdown behind one interface", async () => {
     const logs: unknown[] = [];
     const payload: AgentJobPayload = {
@@ -18,7 +18,7 @@ describe("createAgentWorkerRuntime", () => {
       | undefined;
     let closed = false;
 
-    const runtime = createAgentWorkerRuntime({
+    const workerProcess = createAgentWorkerProcess({
       env: {
         REDIS_URL: "redis://localhost:56379",
         AGENT_RUNTIME: "claude",
@@ -47,7 +47,6 @@ describe("createAgentWorkerRuntime", () => {
       },
       async processJob(jobPayload) {
         return {
-          accepted: true,
           promptLength: jobPayload.prompt.length,
           runtime: "claude",
           configured: false,
@@ -58,7 +57,6 @@ describe("createAgentWorkerRuntime", () => {
     });
 
     await expect(capturedProcessJob?.({ id: "job-1", name: "agent.run", data: payload })).resolves.toEqual({
-      accepted: true,
       promptLength: 23,
       runtime: "claude",
       configured: false,
@@ -67,7 +65,7 @@ describe("createAgentWorkerRuntime", () => {
     });
     capturedOnCompleted?.({ id: "job-1", name: "agent.run", data: payload });
     capturedOnFailed?.(undefined, new Error("boom"));
-    await runtime.close();
+    await workerProcess.close();
 
     expect(closed).toBe(true);
     expect(logs[0]).toEqual(["info", { jobId: "job-1", jobName: "agent.run" }, "processing agent job"]);

@@ -1,12 +1,12 @@
 import { z } from "zod";
+import { AgentRunInputSchema } from "./agent-run";
 
 export const agentJobName = "agent.run";
 export const agentQueueName = "agent-jobs";
 
 export const AgentJobNameSchema = z.literal(agentJobName);
 
-export const AgentJobPayloadSchema = z.object({
-  prompt: z.string().min(1),
+export const AgentJobPayloadSchema = AgentRunInputSchema.extend({
   requestedAt: z.string().datetime()
 });
 

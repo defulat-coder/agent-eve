@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { submitAgentJob } from "./agent-job-client";
+import { streamAgentChat, submitAgentJob } from "./agent-client";
 
 describe("submitAgentJob", () => {
   it("rejects an empty prompt before calling the backend", async () => {
@@ -73,3 +73,48 @@ describe("submitAgentJob", () => {
     await expect(submitAgentJob({ prompt: "Run agent", fetcher })).rejects.toThrow();
   });
 });
+
+describe("streamAgentChat", () => {
+  it("streams Agent events and returns the final result", async () => {
+    const events: unknown[] = [];
+    const fetcher = vi.fn().mockResolvedValue({
+      body: createStream(
+        [
+          'event: agent-event\ndata: {"kind":"text","text":"Working"}\n\n',
+          'event: result\ndata: {"promptLength":9,"runtime":"claude","configured":true,"model":"kimi-for-coding","status":"completed","events":[{"kind":"text","text":"Working"},{"kind":"done","result":"Done"}],"output":"Done"}\n\n'
+        ].join("")
+      ),
+      ok: true
+    });
+
+    await expect(
+      streamAgentChat({
+        prompt: "Run agent",
+        baseUrl: "http://api.test",
+        fetcher,
+        onEvent(event) {
+          events.push(event);
+        }
+      })
+    ).resolves.toMatchObject({
+      output: "Done",
+      status: "completed"
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://api.test/agent/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: "Run agent" })
+    });
+    expect(events).toEqual([{ kind: "text", text: "Working" }]);
+  });
+});
+
+function createStream(input: string) {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(input));
+      controller.close();
+    }
+  });
+}

@@ -7,7 +7,8 @@ export const EnvSchema = AgentRuntimeEnvSchema.extend({
   DATABASE_URL: z.string().url().default(defaultDatabaseUrl),
   REDIS_URL: z.string().url().default("redis://localhost:56379"),
   API_HOST: z.string().default("0.0.0.0"),
-  API_PORT: z.coerce.number().int().positive().default(4000)
+  API_PORT: z.coerce.number().int().positive().default(4000),
+  CORS_ORIGIN: z.string().default("http://localhost:3000")
 });
 
 export type Env = z.infer<typeof EnvSchema>;

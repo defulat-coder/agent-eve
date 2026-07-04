@@ -5,7 +5,7 @@ Reusable language for the Agent platform template. This glossary names product c
 ## Language
 
 **Agent job**:
-A queued request to run Agent work from a prompt and timestamp.
+A queued request to start an Agent run from a prompt and timestamp.
 _Avoid_: Task, queue item
 
 **Agent job intake**:
@@ -16,8 +16,12 @@ _Avoid_: Job route, enqueue helper
 A selectable implementation of Agent behavior. The template may include multiple Agent runtimes, but a deployment chooses one through environment configuration.
 _Avoid_: Agent type, Agent mode
 
+**Agent run**:
+One execution of an Agent from a prompt through the selected Agent runtime. It may be started by Chat SSE or by a queued Agent job.
+_Avoid_: Agent work, job result
+
 **Agent run event**:
-An event emitted while an Agent runtime executes an Agent job.
+An event emitted while an Agent runtime executes an Agent run.
 _Avoid_: UI timeline item, log line
 
 **Claude Agent runtime**:
