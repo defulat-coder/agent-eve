@@ -42,6 +42,7 @@ pnpm db:seed
 
 ## 技能安装
 
+- 查找可用技能时统一使用 `find-skills`。
 - 真实技能目录：`.agents/skills/<skill-name>/`
 - Codex 发现路径：`.codex/skills/<skill-name> -> ../../.agents/skills/<skill-name>`
 - GitHub 技能用 sparse checkout 拉目标目录，再复制到 `.agents/skills/<skill-name>`。
