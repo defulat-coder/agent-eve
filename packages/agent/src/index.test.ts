@@ -27,6 +27,7 @@ describe("Agent runtime selector", () => {
   it("keeps runtime-specific env config behind the Agent runtime env interface", () => {
     expect(parseAgentRuntimeEnv({})).toMatchObject({
       AGENT_RUNTIME: defaultAgentRuntimeName,
+      ANTHROPIC_MODEL: defaultClaudeAgentModel,
       CLAUDE_AGENT_MODEL: defaultClaudeAgentModel,
       EVE_AGENT_MODEL: defaultEveAgentModel
     });

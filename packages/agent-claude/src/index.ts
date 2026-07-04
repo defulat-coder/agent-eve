@@ -1,10 +1,13 @@
 import { z } from "zod";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
-export const defaultClaudeAgentModel = "claude-sonnet-4-5";
+export const defaultClaudeAgentModel = "kimi-for-coding";
+export const defaultAnthropicBaseUrl = "https://api.kimi.com/coding/";
 
 export const ClaudeAgentConfigSchema = z.object({
   apiKey: z.string().min(1).optional(),
+  authToken: z.string().min(1).optional(),
+  baseUrl: z.string().url().optional(),
   model: z.string().min(1).default(defaultClaudeAgentModel)
 });
 
@@ -40,13 +43,15 @@ export type ClaudeAgentJobRunResult =
 export function parseClaudeAgentConfig(input: Record<string, unknown>): ClaudeAgentConfig {
   return ClaudeAgentConfigSchema.parse({
     apiKey: input.ANTHROPIC_API_KEY || undefined,
-    model: input.CLAUDE_AGENT_MODEL || undefined
+    authToken: input.ANTHROPIC_AUTH_TOKEN || undefined,
+    baseUrl: input.ANTHROPIC_BASE_URL || undefined,
+    model: input.CLAUDE_AGENT_MODEL || input.ANTHROPIC_MODEL || undefined
   });
 }
 
 export function getClaudeAgentRuntimeState(config: ClaudeAgentConfig): ClaudeAgentRuntimeState {
   return {
-    configured: Boolean(config.apiKey),
+    configured: Boolean(config.apiKey || config.authToken),
     model: config.model
   };
 }
@@ -59,15 +64,22 @@ export async function loadClaudeAgentSdk() {
   return import("@anthropic-ai/claude-agent-sdk");
 }
 
+type ClaudeAgentSdk = {
+  query(input: {
+    prompt: string;
+    options?: Record<string, unknown>;
+  }): AsyncIterable<SDKMessage>;
+};
+
 export async function runClaudeAgentJob(
   input: ClaudeAgentJobInput,
   config: ClaudeAgentConfig,
   options: {
-    loadSdk?: typeof loadClaudeAgentSdk;
+    loadSdk?: () => Promise<ClaudeAgentSdk>;
   } = {}
 ): Promise<ClaudeAgentJobRunResult> {
-  if (!config.apiKey) {
-    return { status: "skipped", reason: "ANTHROPIC_API_KEY is not configured" };
+  if (!config.apiKey && !config.authToken) {
+    return { status: "skipped", reason: "ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN is not configured" };
   }
 
   const sdk = await (options.loadSdk ?? loadClaudeAgentSdk)();
@@ -78,6 +90,7 @@ export async function runClaudeAgentJob(
   for await (const message of sdk.query({
     prompt: input.prompt,
     options: {
+      env: createClaudeAgentSubprocessEnv(config),
       maxTurns: 1,
       model: config.model
     }
@@ -114,4 +127,18 @@ export async function runClaudeAgentJob(
   }
 
   return { status: "completed", events, output: result.result, ...(sessionId ? { sessionId } : {}) };
+}
+
+function createClaudeAgentSubprocessEnv(config: ClaudeAgentConfig) {
+  return {
+    ...process.env,
+    CLAUDE_CODE_AUTO_COMPACT_WINDOW: "262144",
+    ...(config.apiKey ? { ANTHROPIC_API_KEY: config.apiKey } : {}),
+    ...(config.authToken ? { ANTHROPIC_AUTH_TOKEN: config.authToken } : {}),
+    ...(config.baseUrl ? { ANTHROPIC_BASE_URL: config.baseUrl } : {}),
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: config.model,
+    ANTHROPIC_DEFAULT_OPUS_MODEL: config.model,
+    ANTHROPIC_DEFAULT_SONNET_MODEL: config.model,
+    ANTHROPIC_MODEL: config.model
+  };
 }

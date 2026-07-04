@@ -22,8 +22,9 @@ describe("createAgentWorkerRuntime", () => {
       env: {
         REDIS_URL: "redis://localhost:56379",
         AGENT_RUNTIME: "claude",
-        CLAUDE_AGENT_MODEL: "claude-sonnet-4-5",
-        EVE_AGENT_MODEL: "anthropic/claude-sonnet-5"
+        ANTHROPIC_MODEL: "kimi-for-coding",
+        CLAUDE_AGENT_MODEL: "kimi-for-coding",
+        EVE_AGENT_MODEL: "kimi-for-coding"
       },
       logger: {
         info(data, message) {
@@ -50,7 +51,7 @@ describe("createAgentWorkerRuntime", () => {
           promptLength: jobPayload.prompt.length,
           runtime: "claude",
           configured: false,
-          model: "claude-sonnet-4-5",
+          model: "kimi-for-coding",
           status: "skipped"
         };
       }
@@ -61,7 +62,7 @@ describe("createAgentWorkerRuntime", () => {
       promptLength: 23,
       runtime: "claude",
       configured: false,
-      model: "claude-sonnet-4-5",
+      model: "kimi-for-coding",
       status: "skipped"
     });
     capturedOnCompleted?.({ id: "job-1", name: "agent.run", data: payload });

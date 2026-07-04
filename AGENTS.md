@@ -89,6 +89,8 @@ docker compose up -d
 - Agent job intake 的外部 seam 是 `AgentJobIntake.enqueue(input)`；Fastify route 不直接管理 Redis URL 或 BullMQ lifecycle。
 - Worker runtime 的 BullMQ event wiring 留在 Worker adapter implementation 内；测试穿过 `onCompleted` / `onFailed` 回调 interface。
 - Agent runtime 只通过环境变量 `AGENT_RUNTIME=claude|eve` 选择；不要从 job payload 覆盖 runtime。
+- Kimi Code 接入 Cloud 和 Eve 时都使用 Anthropic-compatible 协议：`ANTHROPIC_BASE_URL=https://api.kimi.com/coding/`、`ANTHROPIC_MODEL=kimi-for-coding`。
+- Kimi API Key 只放本地 `.env` 或部署环境变量 `ANTHROPIC_API_KEY`，不要写入 `.env.example`、文档或测试。
 - `runAgentJob` 是 Agent job execution seam；它负责 payload validation、runtime dispatch 和 execution result assembly。
 - 未配置的 runtime 返回 `status: "skipped"` 和原因，不伪装成已执行成功。
 - Eve execution adapter 通过 `EVE_AGENT_HOST` 连接官方 Eve HTTP API；`EVE_AGENT_MODEL` 同时驱动 runtime state 和 `agent/agent.ts`。

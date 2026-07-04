@@ -46,11 +46,24 @@ apps/
   api/       Fastify HTTP API
   worker/    BullMQ 后台任务进程
 packages/
-  ui/        shadcn/ui 风格共享组件
-  db/        Prisma schema 和 Prisma Client
-  logger/    Pino logger 封装
-  agent/     Claude Agent SDK 封装
-  shared/    共享 Zod schema 和 TypeScript 类型
+  ui/            shadcn/ui 风格共享组件
+  db/            Prisma schema 和 Prisma Client
+  logger/        Pino logger 封装
+  agent/         Agent runtime 公共边界
+  agent-claude/  Cloud/Claude Agent SDK runtime
+  agent-eve/     Eve runtime
+  shared/        共享 Zod schema 和 TypeScript 类型
 ```
 
-Claude Agent SDK 的 API Key 通过 `ANTHROPIC_API_KEY` 配置。未配置时，API 仍可启动，`/health` 会显示 Claude 配置状态。
+Kimi Code 通过 Anthropic-compatible 协议接入两套 Agent runtime：
+
+```bash
+ANTHROPIC_API_KEY=<your-kimi-api-key>
+ANTHROPIC_BASE_URL=https://api.kimi.com/coding/
+ANTHROPIC_MODEL=kimi-for-coding
+CLAUDE_AGENT_MODEL=kimi-for-coding
+EVE_AGENT_MODEL=kimi-for-coding
+CLAUDE_CODE_AUTO_COMPACT_WINDOW=262144
+```
+
+未配置 API Key 时，API 仍可启动，`/health` 会显示当前 runtime 配置状态。

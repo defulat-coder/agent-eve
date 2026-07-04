@@ -1,6 +1,8 @@
-import { defineAgent } from "eve";
-import { readEveAgentModel } from "../src/config";
+import { defineAgent, type AgentDefinition } from "eve";
+import { createEveAnthropicModel } from "../src/config";
 
-export default defineAgent({
-  model: readEveAgentModel(process.env)
+const agent: AgentDefinition = defineAgent({
+  model: createEveAnthropicModel(process.env)
 });
+
+export default agent;

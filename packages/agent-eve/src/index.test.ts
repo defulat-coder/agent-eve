@@ -32,13 +32,13 @@ describe("Eve Agent runtime", () => {
   });
 
   it("loads the authored surface through eve defineAgent", async () => {
-    const agent = (await import("../agent/agent")).default as { model?: string };
+    const agent = (await import("../agent/agent")).default as { model?: { modelId?: string } };
 
-    expect(agent.model).toBe(defaultEveAgentModel);
+    expect(agent.model?.modelId).toBe(defaultEveAgentModel);
   });
 
   it("uses one model source for runtime state and authored surface", () => {
-    const env = { EVE_AGENT_MODEL: "eve-custom" };
+    const env = { ANTHROPIC_MODEL: "kimi-custom" };
 
     expect(getEveAgentRuntimeStateFromEnv(env).model).toBe(readEveAgentModel(env));
   });

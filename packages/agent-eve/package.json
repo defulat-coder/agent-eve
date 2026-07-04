@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.7",
     "eve": "latest",
     "zod": "^4.4.3"
   },

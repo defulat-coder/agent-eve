@@ -22,6 +22,9 @@ export const AgentRuntimeNameSchema = z.enum(["claude", "eve"]);
 export const AgentRuntimeEnvSchema = z.object({
   AGENT_RUNTIME: AgentRuntimeNameSchema.default(defaultAgentRuntimeName),
   ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_AUTH_TOKEN: z.string().optional(),
+  ANTHROPIC_BASE_URL: z.string().url().optional(),
+  ANTHROPIC_MODEL: z.string().default(defaultClaudeAgentModel),
   CLAUDE_AGENT_MODEL: z.string().default(defaultClaudeAgentModel),
   EVE_AGENT_HOST: z.string().optional(),
   EVE_AGENT_MODEL: z.string().default(defaultEveAgentModel)

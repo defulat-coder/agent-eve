@@ -22,7 +22,7 @@ describe("createHealthStatus", () => {
       agent: {
         runtime: "claude",
         configured: false,
-        model: "claude-sonnet-4-5"
+        model: "kimi-for-coding"
       }
     });
 

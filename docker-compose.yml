@@ -5,7 +5,13 @@ x-runtime-environment: &runtime-environment
   DATABASE_URL: postgresql://project_template:project_template@postgres:5432/project_template?schema=public
   REDIS_URL: redis://redis:6379
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-  CLAUDE_AGENT_MODEL: ${CLAUDE_AGENT_MODEL:-claude-sonnet-4-5}
+  ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:-}
+  ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.kimi.com/coding/}
+  ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-kimi-for-coding}
+  CLAUDE_AGENT_MODEL: ${CLAUDE_AGENT_MODEL:-kimi-for-coding}
+  EVE_AGENT_HOST: ${EVE_AGENT_HOST:-}
+  EVE_AGENT_MODEL: ${EVE_AGENT_MODEL:-kimi-for-coding}
+  CLAUDE_CODE_AUTO_COMPACT_WINDOW: ${CLAUDE_CODE_AUTO_COMPACT_WINDOW:-262144}
 
 x-app-service: &app-service
   build:
