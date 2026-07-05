@@ -20,6 +20,7 @@
 
 ## 官方参考
 
+- MCP protocol introduction: `https://modelcontextprotocol.io/docs/getting-started/intro`
 - MCP Toolbox for Databases: `https://github.com/googleapis/mcp-toolbox`
 - 官方文档: `https://mcp-toolbox.dev/`
 - PostgreSQL source: `https://mcp-toolbox.dev/integrations/postgres/source/`

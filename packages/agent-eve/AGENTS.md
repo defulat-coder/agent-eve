@@ -38,6 +38,7 @@
 
 - Eve introduction: `https://eve.dev/docs/introduction`
 - vercel/eve: `https://github.com/vercel/eve`
+- MCP protocol introduction: `https://modelcontextprotocol.io/docs/getting-started/intro`
 - Kimi Code docs: `https://www.kimi.com/code/docs/`
 
 ## 验证

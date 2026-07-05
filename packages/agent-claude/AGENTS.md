@@ -29,6 +29,7 @@
 - Claude Agent SDK TypeScript options: `https://code.claude.com/docs/en/agent-sdk/typescript`
 - Claude Code settings: `https://code.claude.com/docs/en/settings`
 - Claude Code MCP: `https://code.claude.com/docs/en/mcp`
+- MCP protocol introduction: `https://modelcontextprotocol.io/docs/getting-started/intro`
 - Claude Code permissions: `https://code.claude.com/docs/en/permissions`
 - Kimi Code docs: `https://www.kimi.com/code/docs/`
 
