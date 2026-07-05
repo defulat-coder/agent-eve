@@ -1,0 +1,4 @@
+{
+  "toolboxUrl": "${TOOLBOX_URL:-http://localhost:15000}",
+  "toolboxToolset": "${TOOLBOX_TOOLSET:-agent_template_read_model}"
+}

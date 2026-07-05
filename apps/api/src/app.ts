@@ -3,7 +3,7 @@ import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
 import { runAgent, type AgentRunResult, type RunAgentOptions } from "@agent-template/agent";
 import { createLoggerOptions } from "@agent-template/logger";
-import { createMcpHost, parseMcpHostConfig, type McpHost } from "@agent-template/mcp-host";
+import { createMcpHost, loadMcpHostConfig, type McpHost } from "@agent-template/mcp-host";
 import { AgentRunInputSchema, type AgentRunEvent } from "@agent-template/shared";
 import { loadEnv, type Env } from "./env.js";
 import { getHealth } from "./health.js";
@@ -21,7 +21,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const env = options.env ?? loadEnv();
   const checkExternal = options.checkExternal ?? env.NODE_ENV !== "test";
   const agentJobIntake = options.agentJobIntake ?? createAgentJobIntake({ redisUrl: env.REDIS_URL });
-  const mcpHost = options.mcpHost ?? createMcpHost(parseMcpHostConfig(env));
+  const mcpHost = options.mcpHost ?? createMcpHost(loadMcpHostConfig(env));
   const runChatAgent = options.runAgent ?? runAgent;
   const app = Fastify({ logger: createLoggerOptions({ service: "api" }) });
 

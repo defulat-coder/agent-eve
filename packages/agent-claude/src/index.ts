@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
 import type { McpServerConfig, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import { createMcpHost, parseMcpHostConfig, type McpHostToolCallResult } from "@agent-template/mcp-host";
+import { createMcpHost, loadMcpHostConfig, type McpHostToolCallResult } from "@agent-template/mcp-host";
 import type { AgentRunEvent } from "@agent-template/shared";
 
 export const defaultClaudeAgentModel = "kimi-for-coding";
@@ -346,7 +346,7 @@ function createHostManagedClaudeMcpServers(sdk: ClaudeAgentSdk, config: ClaudeAg
   }
 
   const host = createMcpHost(
-    parseMcpHostConfig({
+    loadMcpHostConfig({
       TOOLBOX_TOOLSET: config.toolboxToolset,
       TOOLBOX_URL: config.toolboxUrl,
     }),

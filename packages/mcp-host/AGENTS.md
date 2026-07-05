@@ -8,7 +8,8 @@
 
 - MCP Host 是平台能力，不属于 Claude 或 Eve runtime。
 - 每个 MCP Server 对应一个 MCP Client connection。
-- 第一版 server registry 只读环境变量和静态配置，不做用户动态添加。
+- server registry 默认读取根目录 `mcp-host.config.json`；文件不存在时才回退环境变量。
+- `mcp-host.config.json` 支持 `${NAME}` 和 `${NAME:-fallback}` 字符串占位，用于同一文件兼容本机和 Docker。
 - 浏览器不直接连接 MCP Server；`apps/web` 通过 `apps/api` 使用这里的能力。
 - Tool call、resource read 和 UI artifact 需要返回结构化结果，供 API SSE 和 Web timeline 渲染。
 

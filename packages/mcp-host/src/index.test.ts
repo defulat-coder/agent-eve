@@ -1,5 +1,8 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createMcpHost, parseMcpHostConfig } from "./index.js";
+import { createMcpHost, defaultMcpHostConfigFileName, loadMcpHostConfig, parseMcpHostConfig } from "./index.js";
 
 describe("MCP Host", () => {
   it("registers the Toolbox MCP server from static env config", () => {
@@ -17,6 +20,44 @@ describe("MCP Host", () => {
         url: "http://toolbox:15000/mcp"
       }
     ]);
+  });
+
+  it("loads the Toolbox MCP server from filesystem config", () => {
+    const previousInitCwd = process.env.INIT_CWD;
+    const dir = mkdtempSync(join(tmpdir(), "mcp-host-config-"));
+    process.env.INIT_CWD = dir;
+    writeFileSync(
+      join(dir, defaultMcpHostConfigFileName),
+      JSON.stringify({
+        toolboxToolset: "${TOOLBOX_TOOLSET:-file_toolset}",
+        toolboxUrl: "http://file-toolbox:15000"
+      }),
+      "utf8"
+    );
+
+    try {
+      expect(
+        createMcpHost(
+          loadMcpHostConfig({
+            TOOLBOX_TOOLSET: "env_toolset",
+            TOOLBOX_URL: "http://env-toolbox:15000"
+          })
+        ).getServers()
+      ).toEqual([
+        {
+          id: "toolbox",
+          toolset: "env_toolset",
+          url: "http://file-toolbox:15000/mcp"
+        }
+      ]);
+    } finally {
+      if (previousInitCwd === undefined) {
+        delete process.env.INIT_CWD;
+      } else {
+        process.env.INIT_CWD = previousInitCwd;
+      }
+      rmSync(dir, { force: true, recursive: true });
+    }
   });
 
   it("lists tools through a Host-managed MCP client", async () => {

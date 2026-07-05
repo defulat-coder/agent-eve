@@ -1,9 +1,12 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { z } from "zod";
 
 export const defaultMcpToolboxServerId = "toolbox";
 export const defaultMcpToolboxToolset = "agent_template_read_model";
+export const defaultMcpHostConfigFileName = "mcp-host.config.json";
 
 export const McpHostConfigSchema = z.object({
   toolboxUrl: z.string().url().optional(),
@@ -60,9 +63,18 @@ type McpHostOptions = {
 
 export function parseMcpHostConfig(input: Record<string, unknown>): McpHostConfig {
   return McpHostConfigSchema.parse({
-    toolboxUrl: typeof input.TOOLBOX_URL === "string" && input.TOOLBOX_URL.length > 0 ? input.TOOLBOX_URL : undefined,
+    toolboxUrl: typeof input.toolboxUrl === "string" && input.toolboxUrl.length > 0 ? input.toolboxUrl : input.TOOLBOX_URL,
     toolboxToolset:
-      typeof input.TOOLBOX_TOOLSET === "string" && input.TOOLBOX_TOOLSET.length > 0 ? input.TOOLBOX_TOOLSET : undefined
+      typeof input.toolboxToolset === "string" && input.toolboxToolset.length > 0 ? input.toolboxToolset : input.TOOLBOX_TOOLSET
+  });
+}
+
+export function loadMcpHostConfig(input: Record<string, unknown> = process.env): McpHostConfig {
+  const fileConfig = readMcpHostConfigFile(input);
+
+  return parseMcpHostConfig({
+    ...input,
+    ...fileConfig
   });
 }
 
@@ -134,6 +146,48 @@ export function createMcpHost(config: McpHostConfig, options: McpHostOptions = {
     callTool,
     createAgentRunsDashboard
   };
+}
+
+function readMcpHostConfigFile(input: Record<string, unknown>) {
+  const configPath = findMcpHostConfigPath(process.env.INIT_CWD ?? process.cwd());
+  if (!configPath) {
+    return {};
+  }
+
+  const parsed = JSON.parse(readFileSync(configPath, "utf8")) as unknown;
+  if (!isRecord(parsed)) {
+    throw new Error(`${defaultMcpHostConfigFileName} must contain a JSON object`);
+  }
+
+  return {
+    toolboxToolset: typeof parsed.toolboxToolset === "string" ? expandEnv(parsed.toolboxToolset, input) : undefined,
+    toolboxUrl: typeof parsed.toolboxUrl === "string" ? expandEnv(parsed.toolboxUrl, input) : undefined
+  };
+}
+
+function findMcpHostConfigPath(start: string) {
+  let dir = start;
+
+  while (true) {
+    const candidate = join(dir, defaultMcpHostConfigFileName);
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+
+    const parent = dirname(dir);
+    if (parent === dir) {
+      return undefined;
+    }
+
+    dir = parent;
+  }
+}
+
+function expandEnv(value: string, input: Record<string, unknown>) {
+  return value.replace(/\$\{([A-Z0-9_]+)(?::-(.*?))?\}/g, (_match, name: string, fallback = "") => {
+    const envValue = input[name];
+    return typeof envValue === "string" && envValue.length > 0 ? envValue : fallback;
+  });
 }
 
 export type McpHost = ReturnType<typeof createMcpHost>;
