@@ -12,6 +12,7 @@ export function AgentConsole() {
   const [prompt, setPrompt] = useState("");
   const [events, setEvents] = useState<AgentRunEvent[]>([]);
   const [result, setResult] = useState<AgentRunResult | null>(null);
+  const [streamedOutput, setStreamedOutput] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState<AgentConsoleStatus>("idle");
   const submitting = status === "submitting" || status === "running";
@@ -21,6 +22,7 @@ export function AgentConsole() {
     setError("");
     setEvents([]);
     setResult(null);
+    setStreamedOutput("");
 
     if (!prompt.trim()) {
       setError("请输入 Agent 请求。");
@@ -33,13 +35,19 @@ export function AgentConsole() {
       const chatResult = await streamAgentChat({
         prompt,
         onEvent(event) {
-          setEvents((current) => [...current, event]);
+          setEvents((current) => appendRunEvent(current, event));
+          if (event.kind === "text") {
+            setStreamedOutput(event.text);
+          }
+          if (event.kind === "done") {
+            setStreamedOutput(event.result);
+          }
           setStatus("running");
         }
       });
 
       setResult(chatResult);
-      setEvents(chatResult.events ?? []);
+      setStreamedOutput(chatResult.output ?? chatResult.reason ?? "");
       setStatus(chatResult.status === "skipped" ? "skipped" : chatResult.status);
     } catch (caught) {
       setError(getAgentChatErrorMessage(caught));
@@ -68,23 +76,38 @@ export function AgentConsole() {
         </p>
       </div>
 
-      {result ? (
+      {result || streamedOutput ? (
         <section className="rounded-md border border-slate-200 bg-white p-4">
-          <p className={result.status === "failed" ? "text-sm font-medium text-red-700" : "text-sm font-medium text-green-700"}>
+          <p className={result?.status === "failed" ? "text-sm font-medium text-red-700" : "text-sm font-medium text-green-700"}>
             Agent 回复
           </p>
           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-950">
-            {result.output ?? result.reason ?? "Agent 未返回内容。"}
+            {streamedOutput || result?.output || result?.reason || "Agent 未返回内容。"}
           </p>
-          <p className="mt-3 text-xs text-slate-500">
-            Runtime: {result.runtime} / Model: {result.model}
-          </p>
+          {result ? (
+            <p className="mt-3 text-xs text-slate-500">
+              Runtime: {result.runtime} / Model: {result.model}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
       <AgentRunTimeline events={events} />
     </form>
   );
+}
+
+function appendRunEvent(events: AgentRunEvent[], event: AgentRunEvent) {
+  if (event.kind !== "text") {
+    return [...events, event];
+  }
+
+  const previous = events.at(-1);
+  if (previous?.kind === "text") {
+    return [...events.slice(0, -1), event];
+  }
+
+  return [...events, event];
 }
 
 function getStatusText(status: AgentConsoleStatus, error: string) {

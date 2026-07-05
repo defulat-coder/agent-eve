@@ -142,6 +142,10 @@ function formatEveAgentEvents(event: unknown): AgentRunEvent[] {
     return [{ kind: "unknown", text: formatEveOutput(event) }];
   }
 
+  if (event.type === "message.appended" && isRecord(event.data) && typeof event.data.messageSoFar === "string") {
+    return [{ kind: "text", text: event.data.messageSoFar }];
+  }
+
   if (event.type === "message.completed" && isRecord(event.data) && typeof event.data.message === "string") {
     return [{ kind: "text", text: event.data.message }];
   }
@@ -243,6 +247,10 @@ function findEveOutput(events: unknown[]): string {
 
     if (event.type === "message.completed" && typeof event.data.message === "string") {
       output = event.data.message;
+    }
+
+    if (event.type === "message.appended" && typeof event.data.messageSoFar === "string") {
+      output = event.data.messageSoFar;
     }
   }
 

@@ -143,9 +143,18 @@ describe("Eve Agent runtime", () => {
                 };
                 yield {
                   data: {
+                    messageSoFar: "Do",
+                    sequence: 3,
+                    stepIndex: 0,
+                    turnId: "turn-1"
+                  },
+                  type: "message.appended"
+                };
+                yield {
+                  data: {
                     finishReason: "stop",
                     message: "Done",
-                    sequence: 1,
+                    sequence: 4,
                     stepIndex: 0,
                     turnId: "turn-1"
                   },
@@ -164,6 +173,7 @@ describe("Eve Agent runtime", () => {
       events: [
         { kind: "tool-call", tool: "toolbox__list-agent-runs", input: "{\"limit\":1}" },
         { kind: "tool-result", tool: "toolbox__list-agent-runs" },
+        { kind: "text", text: "Do" },
         { kind: "text", text: "Done" },
         { kind: "done", result: "Done" }
       ],
@@ -173,6 +183,7 @@ describe("Eve Agent runtime", () => {
     expect(events).toEqual([
       { kind: "tool-call", tool: "toolbox__list-agent-runs", input: "{\"limit\":1}" },
       { kind: "tool-result", tool: "toolbox__list-agent-runs" },
+      { kind: "text", text: "Do" },
       { kind: "text", text: "Done" },
       { kind: "done", result: "Done" }
     ]);
