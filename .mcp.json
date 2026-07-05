@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "toolbox": {
+      "type": "http",
+      "url": "${TOOLBOX_URL:-http://localhost:15000}/mcp",
+      "alwaysLoad": true,
+      "timeout": 10000
+    }
+  }
+}

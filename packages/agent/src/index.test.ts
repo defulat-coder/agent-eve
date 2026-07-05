@@ -5,7 +5,7 @@ import {
   defaultEveAgentModel,
   getAgentRuntimeStateFromEnv,
   parseAgentRuntimeEnv,
-  runAgent
+  runAgent,
 } from "./index.js";
 
 describe("Agent runtime selector", () => {
@@ -29,19 +29,19 @@ describe("Agent runtime selector", () => {
       AGENT_RUNTIME: defaultAgentRuntimeName,
       ANTHROPIC_MODEL: defaultClaudeAgentModel,
       CLAUDE_AGENT_MODEL: defaultClaudeAgentModel,
-      EVE_AGENT_MODEL: defaultEveAgentModel
+      EVE_AGENT_MODEL: defaultEveAgentModel,
     });
 
     expect(
       getAgentRuntimeStateFromEnv({
         AGENT_RUNTIME: "eve",
         EVE_AGENT_HOST: "http://127.0.0.1:13000",
-        EVE_AGENT_MODEL: "eve-custom"
-      })
+        EVE_AGENT_MODEL: "eve-custom",
+      }),
     ).toMatchObject({
       runtime: "eve",
       configured: true,
-      model: "eve-custom"
+      model: "eve-custom",
     });
   });
 
@@ -53,7 +53,11 @@ describe("Agent runtime selector", () => {
         {
           prompt: "Summarize this template",
         },
-        { AGENT_RUNTIME: "eve", EVE_AGENT_HOST: "http://127.0.0.1:13000", EVE_AGENT_MODEL: "eve-custom" },
+        {
+          AGENT_RUNTIME: "eve",
+          EVE_AGENT_HOST: "http://127.0.0.1:13000",
+          EVE_AGENT_MODEL: "eve-custom",
+        },
         {
           runEve: async (_input, _config, options) => {
             options?.onEvent?.({ kind: "text", text: "Working" });
@@ -62,17 +66,17 @@ describe("Agent runtime selector", () => {
               status: "completed",
               events: [
                 { kind: "text", text: "Working" },
-                { kind: "done", result: "Done" }
+                { kind: "done", result: "Done" },
               ],
               output: "Done",
-              sessionId: "eve-session-1"
+              sessionId: "eve-session-1",
             };
           },
           onEvent(event) {
             events.push(event);
-          }
-        }
-      )
+          },
+        },
+      ),
     ).resolves.toEqual({
       promptLength: 23,
       runtime: "eve",
@@ -81,13 +85,48 @@ describe("Agent runtime selector", () => {
       status: "completed",
       events: [
         { kind: "text", text: "Working" },
-        { kind: "done", result: "Done" }
+        { kind: "done", result: "Done" },
       ],
       output: "Done",
-      sessionId: "eve-session-1"
+      sessionId: "eve-session-1",
     });
 
     expect(events).toEqual([{ kind: "text", text: "Working" }]);
+  });
+
+  it("passes Toolbox tool provider env through to the Cloud Agent runtime", async () => {
+    await expect(
+      runAgent(
+        {
+          prompt: "List recent agent runs",
+        },
+        {
+          ANTHROPIC_AUTH_TOKEN: "test-token",
+          TOOLBOX_TOOLSET: "agent_template_read_model",
+          TOOLBOX_URL: "http://toolbox:15000",
+        },
+        {
+          runClaude: async (_input, config) => {
+            expect(config).toMatchObject({
+              authToken: "test-token",
+              toolboxToolset: "agent_template_read_model",
+              toolboxUrl: "http://toolbox:15000",
+            });
+
+            return {
+              status: "completed",
+              events: [{ kind: "done", result: "Done" }],
+              output: "Done",
+            };
+          },
+        },
+      ),
+    ).resolves.toMatchObject({
+      configured: true,
+      events: [{ kind: "done", result: "Done" }],
+      runtime: "claude",
+      status: "completed",
+    });
   });
 
   it("rejects invalid Agent run input at the Agent runtime seam", async () => {

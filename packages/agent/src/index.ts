@@ -4,15 +4,19 @@ import {
   getClaudeAgentRuntimeStateFromEnv,
   loadClaudeAgentSdk,
   parseClaudeAgentConfig,
-  runClaudeAgent
+  runClaudeAgent,
 } from "@agent-template/agent-claude";
 import {
   defaultEveAgentModel,
   getEveAgentRuntimeStateFromEnv,
   parseEveAgentConfig,
-  runEveAgent
+  runEveAgent,
 } from "@agent-template/agent-eve";
-import { AgentRunInputSchema, type AgentRunEvent, type AgentRunResult } from "@agent-template/shared";
+import {
+  AgentRunInputSchema,
+  type AgentRunEvent,
+  type AgentRunResult,
+} from "@agent-template/shared";
 
 export { defaultClaudeAgentModel, defaultEveAgentModel, loadClaudeAgentSdk };
 export type { AgentRunResult };
@@ -28,7 +32,9 @@ export const AgentRuntimeEnvSchema = z.object({
   ANTHROPIC_MODEL: z.string().default(defaultClaudeAgentModel),
   CLAUDE_AGENT_MODEL: z.string().default(defaultClaudeAgentModel),
   EVE_AGENT_HOST: z.string().optional(),
-  EVE_AGENT_MODEL: z.string().default(defaultEveAgentModel)
+  EVE_AGENT_MODEL: z.string().default(defaultEveAgentModel),
+  TOOLBOX_URL: z.string().url().optional(),
+  TOOLBOX_TOOLSET: z.string().optional(),
 });
 
 export type AgentRuntimeName = z.infer<typeof AgentRuntimeNameSchema>;
@@ -46,31 +52,35 @@ export type RunAgentOptions = {
   onEvent?: (event: AgentRunEvent) => void;
 };
 
-export function parseAgentRuntimeEnv(input: Record<string, unknown>): AgentRuntimeEnv {
+export function parseAgentRuntimeEnv(
+  input: Record<string, unknown>,
+): AgentRuntimeEnv {
   return AgentRuntimeEnvSchema.parse(input);
 }
 
-export function getAgentRuntimeStateFromEnv(input: Record<string, unknown>): AgentRuntimeState {
+export function getAgentRuntimeStateFromEnv(
+  input: Record<string, unknown>,
+): AgentRuntimeState {
   const env = parseAgentRuntimeEnv(input);
   const runtime = env.AGENT_RUNTIME;
 
   if (runtime === "eve") {
     return {
       runtime,
-      ...getEveAgentRuntimeStateFromEnv(env)
+      ...getEveAgentRuntimeStateFromEnv(env),
     };
   }
 
   return {
     runtime,
-    ...getClaudeAgentRuntimeStateFromEnv(env)
+    ...getClaudeAgentRuntimeStateFromEnv(env),
   };
 }
 
 export async function runAgent(
   input: unknown,
   env: Record<string, unknown>,
-  options: RunAgentOptions = {}
+  options: RunAgentOptions = {},
 ): Promise<AgentRunResult> {
   const parsed = AgentRunInputSchema.parse(input);
   const runtimeEnv = parseAgentRuntimeEnv(env);
@@ -78,8 +88,16 @@ export async function runAgent(
   const eventOptions = options.onEvent ? { onEvent: options.onEvent } : {};
   const run =
     agentState.runtime === "eve"
-      ? await (options.runEve ?? runEveAgent)(parsed, parseEveAgentConfig(runtimeEnv), eventOptions)
-      : await (options.runClaude ?? runClaudeAgent)(parsed, parseClaudeAgentConfig(runtimeEnv), eventOptions);
+      ? await (options.runEve ?? runEveAgent)(
+          parsed,
+          parseEveAgentConfig(runtimeEnv),
+          eventOptions,
+        )
+      : await (options.runClaude ?? runClaudeAgent)(
+          parsed,
+          parseClaudeAgentConfig(runtimeEnv),
+          eventOptions,
+        );
 
   return {
     promptLength: parsed.prompt.length,
@@ -90,6 +108,6 @@ export async function runAgent(
     ...("events" in run ? { events: [...run.events] } : {}),
     ...("output" in run ? { output: run.output } : {}),
     ...("reason" in run ? { reason: run.reason } : {}),
-    ...("sessionId" in run ? { sessionId: run.sessionId } : {})
+    ...("sessionId" in run ? { sessionId: run.sessionId } : {}),
   };
 }

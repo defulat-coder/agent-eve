@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   defaultAnthropicBaseUrl,
+  defaultClaudeAgentMaxTurns,
   defaultClaudeAgentModel,
   getClaudeAgentRuntimeStateFromEnv,
-  runClaudeAgent
+  runClaudeAgent,
 } from "./index.js";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
@@ -24,7 +25,7 @@ describe("Claude Agent runtime", () => {
         {
           authToken: "test-token",
           baseUrl: defaultAnthropicBaseUrl,
-          model: "kimi-for-coding"
+          model: "kimi-for-coding",
         },
         {
           loadSdk: async () => ({
@@ -45,17 +46,17 @@ describe("Claude Agent runtime", () => {
                   subtype: "success",
                   total_cost_usd: 0,
                   type: "result",
-                  usage: {}
+                  usage: {},
                 } as unknown as SDKMessage;
               })();
-            }
-          })
-        }
-      )
+            },
+          }),
+        },
+      ),
     ).resolves.toMatchObject({
       events: [{ kind: "done", result: "Done" }],
       output: "Done",
-      status: "completed"
+      status: "completed",
     });
 
     expect(calls).toMatchObject([
@@ -65,20 +66,118 @@ describe("Claude Agent runtime", () => {
             ANTHROPIC_AUTH_TOKEN: "test-token",
             ANTHROPIC_BASE_URL: defaultAnthropicBaseUrl,
             CLAUDE_CODE_AUTO_COMPACT_WINDOW: "262144",
-            CLAUDE_CONFIG_DIR: expect.any(String)
+            CLAUDE_CONFIG_DIR: expect.any(String),
           },
-          maxTurns: 1,
+          cwd: expect.any(String),
+          maxTurns: defaultClaudeAgentMaxTurns,
           permissionMode: "dontAsk",
           persistSession: false,
-          tools: []
-        }
-      }
+          tools: [],
+        },
+      },
     ]);
 
-    const subprocessEnv = (calls[0] as { options: { env: Record<string, string | undefined> } }).options.env;
+    const subprocessEnv = (
+      calls[0] as { options: { env: Record<string, string | undefined> } }
+    ).options.env;
     expect(subprocessEnv).not.toHaveProperty("ANTHROPIC_DEFAULT_HAIKU_MODEL");
     expect(subprocessEnv).not.toHaveProperty("ANTHROPIC_DEFAULT_OPUS_MODEL");
     expect(subprocessEnv).not.toHaveProperty("ANTHROPIC_DEFAULT_SONNET_MODEL");
     expect(subprocessEnv).not.toHaveProperty("ANTHROPIC_MODEL");
+  });
+
+  it("uses project Claude Code files instead of inline Toolbox MCP config", async () => {
+    const calls: unknown[] = [];
+
+    await expect(
+      runClaudeAgent(
+        { prompt: "List recent agent runs" },
+        {
+          authToken: "test-token",
+          baseUrl: defaultAnthropicBaseUrl,
+          model: "kimi-for-coding",
+          toolboxToolset: "agent_template_read_model",
+          toolboxUrl: "http://toolbox:15000",
+        },
+        {
+          loadSdk: async () => ({
+            query(params) {
+              calls.push(params);
+
+              return (async function* () {
+                yield {
+                  session_id: "claude-session-1",
+                  subtype: "thinking_tokens",
+                  type: "system",
+                } as unknown as SDKMessage;
+                yield {
+                  message: {
+                    content: [
+                      {
+                        id: "toolu-1",
+                        input: { limit: 3 },
+                        name: "mcp__toolbox__list-agent-runs",
+                        type: "tool_use",
+                      },
+                    ],
+                    role: "assistant",
+                  },
+                  parent_tool_use_id: null,
+                  session_id: "claude-session-1",
+                  type: "assistant",
+                } as unknown as SDKMessage;
+                yield {
+                  duration_api_ms: 0,
+                  duration_ms: 0,
+                  is_error: false,
+                  modelUsage: {},
+                  num_turns: 1,
+                  permission_denials: [],
+                  result: "Found recent runs",
+                  session_id: "claude-session-1",
+                  stop_reason: "stop",
+                  subtype: "success",
+                  total_cost_usd: 0,
+                  type: "result",
+                  usage: {},
+                } as unknown as SDKMessage;
+              })();
+            },
+          }),
+        },
+      ),
+    ).resolves.toMatchObject({
+      events: [
+        {
+          input: '{"limit":3}',
+          kind: "tool-call",
+          tool: "mcp__toolbox__list-agent-runs",
+        },
+        { kind: "done", result: "Found recent runs" },
+      ],
+      output: "Found recent runs",
+      status: "completed",
+    });
+
+    expect(calls).toMatchObject([
+      {
+        options: {
+          allowedTools: [
+            "mcp__toolbox__get-template-event",
+            "mcp__toolbox__list-agent-runs",
+            "mcp__toolbox__list-agent-run-timeline",
+            "mcp__toolbox__list-template-events",
+          ],
+          cwd: expect.any(String),
+          env: {
+            TOOLBOX_TOOLSET: "agent_template_read_model",
+            TOOLBOX_URL: "http://toolbox:15000",
+          },
+        },
+      },
+    ]);
+    expect(
+      (calls[0] as { options: Record<string, unknown> }).options,
+    ).not.toHaveProperty("mcpServers");
   });
 });

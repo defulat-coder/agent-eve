@@ -11,7 +11,7 @@
 - `loadClaudeAgentSdk` 保持懒加载，避免无 key 时影响本地启动。
 - Kimi Code 通过 Anthropic-compatible env 接入：`ANTHROPIC_BASE_URL=https://api.kimi.com/coding/`、`ANTHROPIC_MODEL=kimi-for-coding`、`ANTHROPIC_API_KEY`。
 - 传给 Claude Agent SDK subprocess 的 `env` 必须合并 `process.env`，不要替换掉 `PATH`、`HOME` 等运行时变量。
-- 如果接入 Toolbox server，只通过 Claude Agent SDK 支持的 MCP 配置加载 `TOOLBOX_URL` / `TOOLBOX_TOOLSET`，不直接 import `apps/toolbox/tools.yaml`。
+- Toolbox server 通过项目根目录 `.mcp.json` 和 `.claude/settings.json` 接入；runtime 代码只负责把 `TOOLBOX_URL` / `TOOLBOX_TOOLSET` 传给 Claude Code subprocess，不直接 import `apps/toolbox/tools.yaml`，也不内联 `mcpServers`。
 
 ## 不应该做
 
@@ -24,7 +24,12 @@
 
 ## 官方参考
 
+- Claude Code Docs: `https://code.claude.com/docs`
 - Claude Agent SDK overview: `https://code.claude.com/docs/en/agent-sdk/overview`
+- Claude Agent SDK TypeScript options: `https://code.claude.com/docs/en/agent-sdk/typescript`
+- Claude Code settings: `https://code.claude.com/docs/en/settings`
+- Claude Code MCP: `https://code.claude.com/docs/en/mcp`
+- Claude Code permissions: `https://code.claude.com/docs/en/permissions`
 - Kimi Code docs: `https://www.kimi.com/code/docs/`
 
 ## 验证
