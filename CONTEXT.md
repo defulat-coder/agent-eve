@@ -40,6 +40,14 @@ _Avoid_: Database helper, embedded database client
 A named group of Toolbox server tools that an Agent runtime may load for a specific Agent capability.
 _Avoid_: Runtime plugin, database permission set
 
+**MCP Host**:
+The user-facing AI application that manages MCP server connections, presents chat, and renders MCP Apps or other interactive MCP outputs.
+_Avoid_: MCP server, Tool provider
+
+**MCP Client**:
+A protocol client owned by an MCP Host or Agent runtime that maintains one connection to one MCP Server.
+_Avoid_: Web page, Agent runtime
+
 **Claude Agent runtime**:
 A Claude Agent SDK backed Agent runtime.
 _Avoid_: Cloud runtime, Claude path

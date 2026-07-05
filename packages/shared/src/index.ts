@@ -18,7 +18,9 @@ export {
 export { AgentRunInputSchema, AgentRunResultSchema, type AgentRunInput, type AgentRunResult } from "./agent-run";
 export {
   AgentArtifactSchema,
+  AgentRunUiSchema,
   AgentRunEventSchema,
   type AgentArtifact,
+  type AgentRunUi,
   type AgentRunEvent
 } from "./agent-run-events";

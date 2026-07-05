@@ -19,6 +19,32 @@ describe("AgentRunEventSchema", () => {
       tool: "search"
     });
     expect(AgentRunEventSchema.parse({ kind: "text", text: "hello" })).toEqual({ kind: "text", text: "hello" });
+    expect(
+      AgentRunEventSchema.parse({
+        kind: "ui",
+        ui: {
+          component: "agent-runs-dashboard",
+          title: "Agent 运行分析",
+          data: {
+            metrics: {
+              completedRuns: 1,
+              failedRuns: 1,
+              failureRate: 0.5,
+              totalRuns: 2
+            },
+            runs: [
+              {
+                eventCount: 4,
+                firstEventAt: "2026-07-04T11:30:00.000Z",
+                lastEventAt: "2026-07-04T11:30:22.000Z",
+                runId: "run_knowledge_001",
+                terminalEvent: "agent.run.completed"
+              }
+            ]
+          }
+        }
+      })
+    ).toMatchObject({ kind: "ui" });
     expect(AgentRunEventSchema.parse({ kind: "done", result: "ok" })).toEqual({ kind: "done", result: "ok" });
   });
 

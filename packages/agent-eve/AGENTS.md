@@ -18,8 +18,8 @@
 - `agent/instructions.md` 放基础 system prompt。
 - `agent/channels/eve.ts` 放 Eve HTTP route auth；不要删除 API service auth，否则 `@agent-template/agent-eve` client 会被 Eve session route 拒绝。
 - `agent/tools/web_search.ts` 禁用 Eve provider-managed `web_search`；Kimi Anthropic-compatible stream 会返回缺少 `id` 的 server tool block，启用后会触发 Eve/AI SDK 类型校验失败。
-- `agent/tools`、`agent/skills`、`agent/channels`、`agent/connections`、`agent/hooks`、`agent/sandbox`、`agent/subagents` 按 Eve 语义增长。
-- Toolbox server 通过 Eve MCP connection 接入，文件放在 `agent/connections/toolbox.ts`；只引用 `TOOLBOX_URL`，工具范围保持为 `agent_template_read_model` 对应的只读工具。
+- `agent/tools`、`agent/skills`、`agent/channels`、`agent/hooks`、`agent/sandbox`、`agent/subagents` 按 Eve 语义增长。
+- Toolbox 能力通过 Eve authored tools 接入，工具实现委托 `@agent-template/mcp-host`；不要在 `agent/connections` 下恢复 runtime-owned Toolbox MCP connection。
 - Eve stream 事件需要转换成 shared `AgentRunEvent`，至少覆盖 `message.completed`、`actions.requested`、`action.result` 和失败事件，保证 API Chat SSE 与前端 timeline 可用。
 - `eve` 依赖的 package spec 保持 `latest`，不要改成固定版本、`^x.y.z` 或 major range；该框架迭代快，按用户要求跟随 npm latest tag。
 - 开发 Eve runtime、authored surface 或相关测试前，先使用 `.codex/skills/eve`。
@@ -32,6 +32,7 @@
 - 不把 Claude SDK 逻辑写进这里。
 - 不把 Kimi API Key 写入仓库。
 - 不把 PostgreSQL 连接信息或 Toolbox `tools.yaml` 复制进 Eve runtime package；数据库权限留在 `apps/toolbox`。
+- 不让 Eve authored surface 直接维护 MCP client lifecycle；MCP 协议连接统一属于 `@agent-template/mcp-host`。
 - 不凭记忆直接写 Eve API；以官方文档、本地 Eve skill 和安装包 docs 为准。
 
 ## 官方参考

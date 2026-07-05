@@ -93,6 +93,87 @@ describe("POST /agent/chat", () => {
     expect(response.body).toContain('event: agent-event\ndata: {"kind":"text","text":"Working"}');
     expect(response.body).toContain('event: result\ndata: {"configured":true');
   });
+
+  it("streams Host-managed MCP UI events for analytics prompts", async () => {
+    const app = buildApp({
+      env: loadEnv({ NODE_ENV: "test" }),
+      mcpHost: {
+        getServers: () => [],
+        listTools: async () => [],
+        callTool: async () => ({ content: [] }),
+        createAgentRunsDashboard: async () => ({
+          metrics: {
+            completedRuns: 1,
+            failedRuns: 0,
+            failureRate: 0,
+            totalRuns: 1
+          },
+          runs: [
+            {
+              eventCount: 4,
+              firstEventAt: "2026-07-04T11:30:00.000Z",
+              lastEventAt: "2026-07-04T11:30:22.000Z",
+              runId: "run_knowledge_001",
+              terminalEvent: "agent.run.completed"
+            }
+          ]
+        })
+      },
+      async runAgent(input, _env, options) {
+        options?.onEvent?.({ kind: "text", text: "Working" });
+
+        return {
+          configured: true,
+          events: [{ kind: "text", text: "Working" }, { kind: "done", result: "Done" }],
+          model: "kimi-for-coding",
+          output: "Done",
+          promptLength: (input as { prompt: string }).prompt.length,
+          runtime: "claude",
+          status: "completed"
+        };
+      }
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/agent/chat",
+      payload: {
+        prompt: "给我做 Agent 运行统计分析"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('"kind":"tool-call","tool":"mcp-host/toolbox/list-agent-runs"');
+    expect(response.body).toContain('"kind":"ui","ui":{"component":"agent-runs-dashboard"');
+  });
+});
+
+describe("MCP Host API", () => {
+  it("exposes Host-managed MCP servers and tools", async () => {
+    const app = buildApp({
+      env: loadEnv({ NODE_ENV: "test" }),
+      mcpHost: {
+        getServers: () => [{ id: "toolbox", toolset: "agent_template_read_model", url: "http://toolbox:15000/mcp" }],
+        listTools: async (serverId) => {
+          expect(serverId).toBe("toolbox");
+
+          return [{ inputSchema: { type: "object" }, name: "list-agent-runs" }];
+        },
+        callTool: async () => ({ content: [] }),
+        createAgentRunsDashboard: async () => ({
+          metrics: { completedRuns: 0, failedRuns: 0, failureRate: 0, totalRuns: 0 },
+          runs: []
+        })
+      }
+    });
+
+    await expect(app.inject({ method: "GET", url: "/mcp/servers" }).then((response) => response.json())).resolves.toEqual({
+      servers: [{ id: "toolbox", toolset: "agent_template_read_model", url: "http://toolbox:15000/mcp" }]
+    });
+    await expect(app.inject({ method: "GET", url: "/mcp/servers/toolbox/tools" }).then((response) => response.json())).resolves.toEqual({
+      tools: [{ inputSchema: { type: "object" }, name: "list-agent-runs" }]
+    });
+  });
 });
 
 describe("getHealth", () => {

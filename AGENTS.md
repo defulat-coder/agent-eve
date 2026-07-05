@@ -68,14 +68,17 @@ pnpm db:seed
 - `packages/agent`: Agent runtime contract、`AGENT_RUNTIME` selector 和公共入口。
 - `packages/agent-claude`: Claude Agent SDK backed runtime。
 - `packages/agent-eve`: Eve filesystem-first runtime 和 `agent/` authored surface。
+- `packages/mcp-host`: MCP Host 核心边界，统一管理 MCP server registry、client lifecycle、tools/list、tools/call 和交互式 UI 输出。
 
 ## 架构规则
 
 - `apps/*` 只依赖 `@agent-template/agent` 的公共 runtime 边界，不直接依赖具体 runtime package。
 - Agent runtime 只通过 `AGENT_RUNTIME=claude|eve` 选择；不要从 request 或 job payload 覆盖。
 - Kimi Code 接入 Cloud 和 Eve 都使用 Anthropic-compatible 协议；API Key 只放本地 `.env` 或部署环境变量。
-- `TOOLBOX_URL` 和 `TOOLBOX_TOOLSET` 只表达 Tool provider 连接信息，不参与 runtime 选择。
+- `TOOLBOX_URL` 和 `TOOLBOX_TOOLSET` 只表达 Host-managed MCP 连接信息，不参与 runtime 选择。
 - 生产 Agent 默认只加载 `apps/toolbox/tools.yaml` 中显式声明的自定义 toolset。
+- MCP Host 是平台能力，统一放在 `@agent-template/mcp-host`；Claude/Eve runtime 不直接持有 Toolbox MCP connection。
+- Web 不直接连接 MCP Server；交互式 MCP 输出通过 `apps/api` 的 Chat SSE 或 MCP Host API 返回到前端。
 - Queue runtime 暂不抽新 module；等第三个 queue consumer 或可替换 adapter 需求出现再抽。
 
 ## 提交规则

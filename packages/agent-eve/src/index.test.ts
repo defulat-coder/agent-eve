@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   defaultEveAgentModel,
   eveAgentDirectory,
@@ -44,26 +44,17 @@ describe("Eve Agent runtime", () => {
     expect(agent.model?.modelId).toBe(defaultEveAgentModel);
   });
 
-  it("defines the Toolbox MCP connection in the Eve authored surface", async () => {
-    const previousToolboxUrl = process.env.TOOLBOX_URL;
-    process.env.TOOLBOX_URL = "http://toolbox:15000";
+  it("exposes Toolbox through Host-managed Eve authored tools", async () => {
+    const listAgentRuns = (await import("../agent/tools/list_agent_runs")).default as { description?: string };
+    const listAgentRunTimeline = (await import("../agent/tools/list_agent_run_timeline")).default as { description?: string };
+    const listTemplateEvents = (await import("../agent/tools/list_template_events")).default as { description?: string };
+    const getTemplateEvent = (await import("../agent/tools/get_template_event")).default as { description?: string };
 
-    try {
-      const connection = (await import("../agent/connections/toolbox")).default as {
-        url: string;
-        tools?: { allow?: string[] };
-      };
-
-      expect(connection.url).toBe("http://toolbox:15000/mcp");
-      expect(connection.tools?.allow).toEqual([
-        "list-template-events",
-        "get-template-event",
-        "list-agent-runs",
-        "list-agent-run-timeline"
-      ]);
-    } finally {
-      process.env.TOOLBOX_URL = previousToolboxUrl;
-    }
+    expect(listAgentRuns.description).toContain("Host-managed Toolbox");
+    expect(listAgentRunTimeline.description).toContain("Host-managed Toolbox");
+    expect(listTemplateEvents.description).toContain("Host-managed Toolbox");
+    expect(getTemplateEvent.description).toContain("Host-managed Toolbox");
+    expect(existsSync(new URL("../agent/connections/toolbox.ts", import.meta.url))).toBe(false);
   });
 
   it("defines the Eve channel route auth in the authored surface", async () => {

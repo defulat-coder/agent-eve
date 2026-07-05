@@ -1,8 +1,9 @@
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { z } from "zod";
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { McpServerConfig, SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { createMcpHost, parseMcpHostConfig, type McpHostToolCallResult } from "@agent-template/mcp-host";
 import type { AgentRunEvent } from "@agent-template/shared";
 
 export const defaultClaudeAgentModel = "kimi-for-coding";
@@ -84,6 +85,14 @@ type ClaudeAgentSdk = {
     prompt: string;
     options?: Record<string, unknown>;
   }): AsyncIterable<SDKMessage>;
+  createSdkMcpServer(options: Record<string, unknown>): McpServerConfig;
+  tool(
+    name: string,
+    description: string,
+    inputSchema: Record<string, z.ZodType>,
+    handler: (args: Record<string, unknown>) => Promise<McpHostToolCallResult>,
+    extras?: Record<string, unknown>,
+  ): unknown;
 };
 
 export async function runClaudeAgent(
@@ -112,8 +121,9 @@ export async function runClaudeAgent(
     options: {
       env: createClaudeAgentSubprocessEnv(config),
       cwd: readClaudeProjectDir(),
-      allowedTools: readClaudeProjectAllowedTools(),
+      allowedTools: readHostManagedClaudeTools(config),
       maxTurns: defaultClaudeAgentMaxTurns,
+      mcpServers: createHostManagedClaudeMcpServers(sdk, config),
       permissionMode: "dontAsk",
       persistSession: false,
       tools: [],
@@ -291,10 +301,6 @@ function createClaudeAgentSubprocessEnv(config: ClaudeAgentConfig) {
     ...(config.apiKey ? { ANTHROPIC_API_KEY: config.apiKey } : {}),
     ...(config.authToken ? { ANTHROPIC_AUTH_TOKEN: config.authToken } : {}),
     ...(config.baseUrl ? { ANTHROPIC_BASE_URL: config.baseUrl } : {}),
-    ...(config.toolboxUrl ? { TOOLBOX_URL: config.toolboxUrl } : {}),
-    ...(config.toolboxToolset
-      ? { TOOLBOX_TOOLSET: config.toolboxToolset }
-      : {}),
     ...(!config.baseUrl
       ? {
           ANTHROPIC_DEFAULT_HAIKU_MODEL: config.model,
@@ -320,48 +326,63 @@ function readClaudeProjectDir() {
     return process.env.CLAUDE_PROJECT_DIR;
   }
 
-  return findClaudeProjectDir(process.env.INIT_CWD ?? process.cwd());
+  return process.env.INIT_CWD ?? process.cwd();
 }
 
-function readClaudeProjectAllowedTools() {
-  try {
-    const settings = JSON.parse(
-      readFileSync(
-        join(readClaudeProjectDir(), ".claude/settings.json"),
-        "utf8",
-      ),
-    ) as { permissions?: { allow?: unknown } };
-
-    return Array.isArray(settings.permissions?.allow)
-      ? settings.permissions.allow.filter(
-          (tool): tool is string => typeof tool === "string",
-        )
-      : [];
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      return [];
-    }
-
-    throw error;
-  }
+function readHostManagedClaudeTools(config: ClaudeAgentConfig) {
+  return config.toolboxUrl
+    ? [
+        "mcp__agent_template_mcp_host__get-template-event",
+        "mcp__agent_template_mcp_host__list-agent-runs",
+        "mcp__agent_template_mcp_host__list-agent-run-timeline",
+        "mcp__agent_template_mcp_host__list-template-events",
+      ]
+    : [];
 }
 
-function findClaudeProjectDir(start: string) {
-  let dir = start;
-
-  while (true) {
-    if (
-      existsSync(join(dir, ".claude/settings.json")) ||
-      existsSync(join(dir, ".mcp.json"))
-    ) {
-      return dir;
-    }
-
-    const parent = dirname(dir);
-    if (parent === dir) {
-      return start;
-    }
-
-    dir = parent;
+function createHostManagedClaudeMcpServers(sdk: ClaudeAgentSdk, config: ClaudeAgentConfig): Record<string, McpServerConfig> {
+  if (!config.toolboxUrl) {
+    return {};
   }
+
+  const host = createMcpHost(
+    parseMcpHostConfig({
+      TOOLBOX_TOOLSET: config.toolboxToolset,
+      TOOLBOX_URL: config.toolboxUrl,
+    }),
+  );
+
+  return {
+    agent_template_mcp_host: sdk.createSdkMcpServer({
+      name: "agent_template_mcp_host",
+      version: "0.1.0",
+      instructions: "Use these Host-managed MCP tools for Agent Template read-model data. The runtime must not connect to Toolbox directly.",
+      tools: [
+        sdk.tool(
+          "list-agent-runs",
+          "List recent Agent runs from the Host-managed Toolbox MCP server.",
+          { limit: z.number().int().positive().max(100).optional() },
+          async (args) => host.callTool("toolbox", "list-agent-runs", args),
+        ),
+        sdk.tool(
+          "list-agent-run-timeline",
+          "List the event timeline for one Agent run from the Host-managed Toolbox MCP server.",
+          { runId: z.string().min(1) },
+          async (args) => host.callTool("toolbox", "list-agent-run-timeline", args),
+        ),
+        sdk.tool(
+          "list-template-events",
+          "List template business events from the Host-managed Toolbox MCP server.",
+          { limit: z.number().int().positive().max(100).optional() },
+          async (args) => host.callTool("toolbox", "list-template-events", args),
+        ),
+        sdk.tool(
+          "get-template-event",
+          "Get one template business event from the Host-managed Toolbox MCP server.",
+          { eventId: z.string().min(1) },
+          async (args) => host.callTool("toolbox", "get-template-event", args),
+        ),
+      ],
+    }),
+  };
 }

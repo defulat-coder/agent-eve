@@ -29,6 +29,9 @@ describe("Claude Agent runtime", () => {
         },
         {
           loadSdk: async () => ({
+            createSdkMcpServer(options) {
+              return { ...options, instance: {} as never, name: String(options.name), type: "sdk" };
+            },
             query(params) {
               calls.push(params);
 
@@ -49,6 +52,9 @@ describe("Claude Agent runtime", () => {
                   usage: {},
                 } as unknown as SDKMessage;
               })();
+            },
+            tool(name, description, inputSchema, handler) {
+              return { description, handler, inputSchema, name };
             },
           }),
         },
@@ -100,6 +106,9 @@ describe("Claude Agent runtime", () => {
         },
         {
           loadSdk: async () => ({
+            createSdkMcpServer(options) {
+              return { ...options, instance: {} as never, name: String(options.name), type: "sdk" };
+            },
             query() {
               return (async function* () {
                 yield {
@@ -152,6 +161,9 @@ describe("Claude Agent runtime", () => {
                 } as unknown as SDKMessage;
               })();
             },
+            tool(name, description, inputSchema, handler) {
+              return { description, handler, inputSchema, name };
+            },
           }),
           onEvent(event) {
             events.push(event);
@@ -175,7 +187,7 @@ describe("Claude Agent runtime", () => {
     ]);
   });
 
-  it("uses project Claude Code files instead of inline Toolbox MCP config", async () => {
+  it("exposes Toolbox through a Host-managed SDK MCP server", async () => {
     const calls: unknown[] = [];
 
     await expect(
@@ -190,6 +202,9 @@ describe("Claude Agent runtime", () => {
         },
         {
           loadSdk: async () => ({
+            createSdkMcpServer(options) {
+              return { ...options, instance: {} as never, name: String(options.name), type: "sdk" };
+            },
             query(params) {
               calls.push(params);
 
@@ -205,7 +220,7 @@ describe("Claude Agent runtime", () => {
                       {
                         id: "toolu-1",
                         input: { limit: 3 },
-                        name: "mcp__toolbox__list-agent-runs",
+                        name: "mcp__agent_template_mcp_host__list-agent-runs",
                         type: "tool_use",
                       },
                     ],
@@ -232,6 +247,9 @@ describe("Claude Agent runtime", () => {
                 } as unknown as SDKMessage;
               })();
             },
+            tool(name, description, inputSchema, handler) {
+              return { description, handler, inputSchema, name };
+            },
           }),
         },
       ),
@@ -240,7 +258,7 @@ describe("Claude Agent runtime", () => {
         {
           input: '{"limit":3}',
           kind: "tool-call",
-          tool: "mcp__toolbox__list-agent-runs",
+          tool: "mcp__agent_template_mcp_host__list-agent-runs",
         },
         { kind: "done", result: "Found recent runs" },
       ],
@@ -252,22 +270,33 @@ describe("Claude Agent runtime", () => {
       {
         options: {
           allowedTools: [
-            "mcp__toolbox__get-template-event",
-            "mcp__toolbox__list-agent-runs",
-            "mcp__toolbox__list-agent-run-timeline",
-            "mcp__toolbox__list-template-events",
+            "mcp__agent_template_mcp_host__get-template-event",
+            "mcp__agent_template_mcp_host__list-agent-runs",
+            "mcp__agent_template_mcp_host__list-agent-run-timeline",
+            "mcp__agent_template_mcp_host__list-template-events",
           ],
           cwd: expect.any(String),
           includePartialMessages: true,
-          env: {
-            TOOLBOX_TOOLSET: "agent_template_read_model",
-            TOOLBOX_URL: "http://toolbox:15000",
+          mcpServers: {
+            agent_template_mcp_host: {
+              name: "agent_template_mcp_host",
+              type: "sdk",
+              tools: [
+                expect.objectContaining({ name: "list-agent-runs" }),
+                expect.objectContaining({ name: "list-agent-run-timeline" }),
+                expect.objectContaining({ name: "list-template-events" }),
+                expect.objectContaining({ name: "get-template-event" }),
+              ],
+              version: "0.1.0",
+            },
           },
         },
       },
     ]);
-    expect(
-      (calls[0] as { options: Record<string, unknown> }).options,
-    ).not.toHaveProperty("mcpServers");
+    const subprocessEnv = (
+      calls[0] as { options: { env: Record<string, string | undefined> } }
+    ).options.env;
+    expect(subprocessEnv).not.toHaveProperty("TOOLBOX_URL");
+    expect(subprocessEnv).not.toHaveProperty("TOOLBOX_TOOLSET");
   });
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { AgentArtifact, AgentRunEvent } from "@agent-template/shared";
+import type { AgentArtifact, AgentRunEvent, AgentRunUi } from "@agent-template/shared";
 
 export function AgentRunTimeline({ events }: { events: AgentRunEvent[] }) {
   return (
@@ -61,6 +61,10 @@ function AgentRunEventRow({ event }: { event: AgentRunEvent }) {
     return <ArtifactTabs tabs={event.tabs} />;
   }
 
+  if (event.kind === "ui") {
+    return <AgentRunUiPanel ui={event.ui} />;
+  }
+
   return <LogRow label="Unknown event">{event.text}</LogRow>;
 }
 
@@ -110,6 +114,95 @@ function ArtifactTabs({ tabs }: { tabs: AgentArtifact[] }) {
         </button>
       </div>
       <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words text-slate-900">{active.content}</pre>
+    </div>
+  );
+}
+
+function AgentRunUiPanel({ ui }: { ui: AgentRunUi }) {
+  if (ui.component !== "agent-runs-dashboard") {
+    return <LogRow label="Unsupported UI">{ui.component}</LogRow>;
+  }
+
+  const [selectedRunId, setSelectedRunId] = useState(ui.data.runs[0]?.runId ?? "");
+  const selectedRun = ui.data.runs.find((run) => run.runId === selectedRunId) ?? ui.data.runs[0];
+  const maxEvents = Math.max(1, ...ui.data.runs.map((run) => run.eventCount));
+
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-3 text-sm">
+      <div className="flex flex-col gap-1">
+        <div className="font-semibold text-slate-950">{ui.title}</div>
+        <div className="text-slate-500">来自 MCP Host 调用 Toolbox 后随 Chat SSE 返回。</div>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-4">
+        <Metric label="总运行数" value={String(ui.data.metrics.totalRuns)} />
+        <Metric label="完成" value={String(ui.data.metrics.completedRuns)} />
+        <Metric label="失败" value={String(ui.data.metrics.failedRuns)} />
+        <Metric label="失败率" value={`${Math.round(ui.data.metrics.failureRate * 100)}%`} />
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="space-y-2">
+          {ui.data.runs.length ? (
+            ui.data.runs.map((run) => (
+              <button
+                className={`w-full rounded-md border px-3 py-2 text-left transition ${
+                  run.runId === selectedRun?.runId
+                    ? "border-slate-900 bg-slate-950 text-white"
+                    : "border-slate-200 bg-slate-50 text-slate-900 hover:border-slate-400"
+                }`}
+                key={run.runId}
+                onClick={() => setSelectedRunId(run.runId)}
+                type="button"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate font-medium">{run.runId}</span>
+                  <span className="shrink-0 text-xs opacity-75">{run.terminalEvent ?? "running"}</span>
+                </div>
+                <div className="mt-2 h-2 rounded bg-white/50">
+                  <div
+                    className="h-2 rounded bg-current opacity-70"
+                    style={{ width: `${Math.max(6, (run.eventCount / maxEvents) * 100)}%` }}
+                  />
+                </div>
+              </button>
+            ))
+          ) : (
+            <p className="rounded-md bg-slate-50 px-3 py-2 text-slate-500">暂无 Agent 运行数据。</p>
+          )}
+        </div>
+
+        {selectedRun ? (
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+            <div className="font-medium text-slate-950">运行详情</div>
+            <dl className="mt-3 space-y-2 text-slate-700">
+              <Detail label="Run ID" value={selectedRun.runId} />
+              <Detail label="事件数" value={String(selectedRun.eventCount)} />
+              <Detail label="终态" value={selectedRun.terminalEvent ?? "运行中"} />
+              <Detail label="开始" value={selectedRun.firstEventAt} />
+              <Detail label="结束" value={selectedRun.lastEventAt} />
+            </dl>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="mt-1 text-lg font-semibold text-slate-950">{value}</div>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="mt-0.5 break-words text-slate-950">{value}</dd>
     </div>
   );
 }
