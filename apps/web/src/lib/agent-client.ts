@@ -19,6 +19,20 @@ type StreamAgentChatOptions = SubmitAgentJobOptions & {
   onEvent?: (event: AgentRunEvent) => void;
 };
 
+type CallMcpToolOptions = {
+  args?: Record<string, unknown>;
+  baseUrl?: string;
+  fetcher?: typeof fetch;
+  serverId: string;
+  toolName: string;
+};
+
+type FetchMcpAppResourceOptions = {
+  baseUrl?: string;
+  fetcher?: typeof fetch;
+  uri: string;
+};
+
 export async function submitAgentJob({
   prompt,
   baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:14000",
@@ -114,6 +128,40 @@ export async function streamAgentChat({
   }
 
   return result;
+}
+
+export async function fetchMcpAppResource({
+  baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:14000",
+  fetcher = fetch,
+  uri
+}: FetchMcpAppResourceOptions): Promise<string> {
+  const response = await fetcher(`${baseUrl}/mcp/apps/resource?uri=${encodeURIComponent(uri)}`);
+
+  if (!response.ok) {
+    throw new Error(`MCP App resource request failed with status ${response.status}`);
+  }
+
+  return response.text();
+}
+
+export async function callMcpTool({
+  args = {},
+  baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:14000",
+  fetcher = fetch,
+  serverId,
+  toolName
+}: CallMcpToolOptions) {
+  const response = await fetcher(`${baseUrl}/mcp/servers/${encodeURIComponent(serverId)}/tools/${encodeURIComponent(toolName)}/call`, {
+    body: JSON.stringify({ arguments: args }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    throw new Error(`MCP tool call failed with status ${response.status}`);
+  }
+
+  return response.json() as Promise<unknown>;
 }
 
 function readSseMessages(buffer: string, onMessage: (message: string) => void) {

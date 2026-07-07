@@ -2,10 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import { Button } from "@agent-template/ui";
-import type { AgentJsonRenderUiPatch, AgentRunEvent, AgentRunResult } from "@agent-template/shared";
+import type { AgentMcpAppUi, AgentRunEvent, AgentRunResult } from "@agent-template/shared";
 import { streamAgentChat } from "@/lib/agent-client";
 import { AgentRunTimeline } from "./agent-run-timeline";
-import { JsonRenderStreamPanel } from "./json-render-stream-panel";
+import { McpAppPanel } from "./mcp-app-panel";
 
 type AgentConsoleStatus = "idle" | "submitting" | "running" | "completed" | "skipped" | "failed";
 
@@ -86,8 +86,8 @@ export function AgentConsole() {
           <div className="mt-3 flex flex-col gap-4">
             {messageParts.length ? (
               messageParts.map((part, index) =>
-                part.kind === "json-render" ? (
-                  <JsonRenderStreamPanel key={`reply-json-render-${part.id}`} patches={part.patches} title={part.title} />
+                part.kind === "mcp-app" ? (
+                  <McpAppPanel key={`reply-mcp-app-${part.ui.id}`} ui={part.ui} />
                 ) : (
                   <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-950" key={`reply-text-${index}`}>
                     {part.text}
@@ -115,11 +115,10 @@ export function AgentConsole() {
 
 type AgentMessagePart =
   | { kind: "text"; text: string }
-  | { id: string; kind: "json-render"; patches: AgentJsonRenderUiPatch[]; title: string };
+  | { kind: "mcp-app"; ui: AgentMcpAppUi };
 
 function buildAgentMessageParts(events: AgentRunEvent[]) {
   const parts: AgentMessagePart[] = [];
-  const jsonRenderParts = new Map<string, Extract<AgentMessagePart, { kind: "json-render" }>>();
 
   for (const event of events) {
     if (event.kind === "text" || event.kind === "done") {
@@ -138,16 +137,8 @@ function buildAgentMessageParts(events: AgentRunEvent[]) {
       }
     }
 
-    if (event.kind === "ui" && event.ui.component === "json-render") {
-      const existing = jsonRenderParts.get(event.ui.id);
-
-      if (existing) {
-        existing.patches.push(event.ui);
-      } else {
-        const part = { id: event.ui.id, kind: "json-render" as const, patches: [event.ui], title: event.ui.title };
-        jsonRenderParts.set(event.ui.id, part);
-        parts.push(part);
-      }
+    if (event.kind === "ui" && event.ui.component === "mcp-app") {
+      parts.push({ kind: "mcp-app", ui: event.ui });
     }
   }
 

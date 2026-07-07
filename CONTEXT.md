@@ -25,7 +25,7 @@ An event emitted while an Agent runtime executes an Agent run.
 _Avoid_: UI timeline item, log line
 
 **Agent message part**:
-One ordered piece of an assistant message, such as text, a folded tool event, or a Structured Agent UI block.
+One ordered piece of an assistant message, such as text, a folded tool event, or an MCP App block.
 _Avoid_: Timeline item, standalone panel
 
 **Template event**:
@@ -52,9 +52,9 @@ _Avoid_: MCP server, Tool provider
 A protocol client owned by an MCP Host or Agent runtime that maintains one connection to one MCP Server.
 _Avoid_: Web page, Agent runtime
 
-**Structured Agent UI**:
-A structured, streamable UI artifact emitted during an Agent run so tabular or report-like data can be rendered inside Chat while the normal text answer remains available.
-_Avoid_: Dashboard page, hard-coded report
+**MCP App**:
+An interactive UI returned by an MCP tool through a `ui://` HTML resource and rendered by the MCP Host inside Chat.
+_Avoid_: JSON Render spec, standalone web page
 
 **Claude Agent runtime**:
 A Claude Agent SDK backed Agent runtime.

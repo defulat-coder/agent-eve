@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { streamAgentChat, submitAgentJob } from "./agent-client";
+import { callMcpTool, fetchMcpAppResource, streamAgentChat, submitAgentJob } from "./agent-client";
 
 describe("submitAgentJob", () => {
   it("rejects an empty prompt before calling the backend", async () => {
@@ -81,7 +81,7 @@ describe("streamAgentChat", () => {
       body: createStream(
         [
           'event: agent-event\ndata: {"kind":"text","text":"Working"}\n\n',
-          'event: agent-event\ndata: {"kind":"ui","ui":{"component":"json-render","id":"agent-runs-report","patch":{"op":"add","path":"/root","value":"report"},"title":"Agent 运行分析"}}\n\n',
+          'event: agent-event\ndata: {"kind":"ui","ui":{"component":"mcp-app","id":"agent-runs-mcp-app","resource":{"mimeType":"text/html;profile=mcp-app","uri":"ui://agent-template/agent-runs"},"serverId":"toolbox","title":"Agent Runs MCP App","toolData":{"metrics":{"totalRuns":0},"runs":[]},"toolName":"list-agent-runs"}}\n\n',
           'event: result\ndata: {"promptLength":9,"runtime":"claude","configured":true,"model":"kimi-for-coding","status":"completed","events":[{"kind":"text","text":"Working"},{"kind":"done","result":"Done"}],"output":"Done"}\n\n'
         ].join("")
       ),
@@ -112,13 +112,58 @@ describe("streamAgentChat", () => {
       {
         kind: "ui",
         ui: {
-          component: "json-render",
-          id: "agent-runs-report",
-          patch: { op: "add", path: "/root", value: "report" },
-          title: "Agent 运行分析"
+          component: "mcp-app",
+          id: "agent-runs-mcp-app",
+          resource: {
+            mimeType: "text/html;profile=mcp-app",
+            uri: "ui://agent-template/agent-runs"
+          },
+          serverId: "toolbox",
+          title: "Agent Runs MCP App",
+          toolData: { metrics: { totalRuns: 0 }, runs: [] },
+          toolName: "list-agent-runs"
         }
       }
     ]);
+  });
+});
+
+describe("MCP App client helpers", () => {
+  it("fetches MCP App resources through the API", async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => "<!doctype html><html></html>"
+    });
+
+    await expect(
+      fetchMcpAppResource({
+        baseUrl: "http://api.test",
+        fetcher,
+        uri: "ui://agent-template/agent-runs"
+      })
+    ).resolves.toContain("<html>");
+    expect(fetcher).toHaveBeenCalledWith("http://api.test/mcp/apps/resource?uri=ui%3A%2F%2Fagent-template%2Fagent-runs");
+  });
+
+  it("calls MCP tools through the API", async () => {
+    const fetcher = vi.fn().mockResolvedValue({
+      json: async () => ({ content: [] }),
+      ok: true
+    });
+
+    await callMcpTool({
+      args: { limit: 20 },
+      baseUrl: "http://api.test",
+      fetcher,
+      serverId: "toolbox",
+      toolName: "list-agent-runs"
+    });
+
+    expect(fetcher).toHaveBeenCalledWith("http://api.test/mcp/servers/toolbox/tools/list-agent-runs/call", {
+      body: JSON.stringify({ arguments: { limit: 20 } }),
+      headers: { "Content-Type": "application/json" },
+      method: "POST"
+    });
   });
 });
 

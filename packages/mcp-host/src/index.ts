@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
   AgentRunsDashboardDataSchema,
-  type AgentJsonRenderUiPatch,
+  type AgentMcpAppUi,
   type AgentRunEvent,
   type AgentRunsDashboardData
 } from "@agent-template/shared";
@@ -13,6 +13,7 @@ import { z } from "zod";
 export const defaultMcpToolboxServerId = "toolbox";
 export const defaultMcpToolboxToolset = "agent_template_read_model";
 export const defaultMcpHostConfigFileName = "mcp-host.config.json";
+export const agentRunsMcpAppResourceUri = "ui://agent-template/agent-runs";
 
 export const McpHostServerConfigSchema = z.object({
   url: z.string().url(),
@@ -159,8 +160,20 @@ export function createMcpHost(config: McpHostConfig, options: McpHostOptions = {
         kind: "tool-result",
         tool
       },
-      ...createJsonRenderReportEvents("agent-runs-report", "Agent 运行分析", data)
+      createAgentRunsMcpAppEvent(data)
     ];
+  }
+
+  function getAppResource(resourceUri: string) {
+    if (resourceUri !== agentRunsMcpAppResourceUri) {
+      throw new Error(`Unknown MCP App resource: ${resourceUri}`);
+    }
+
+    return {
+      html: createAgentRunsMcpAppHtml(),
+      mimeType: "text/html;profile=mcp-app" as const,
+      uri: agentRunsMcpAppResourceUri
+    };
   }
 
   async function withClient<T>(serverId: string, task: (client: McpClientLike) => Promise<T>): Promise<T> {
@@ -183,90 +196,26 @@ export function createMcpHost(config: McpHostConfig, options: McpHostOptions = {
     listTools,
     callTool,
     createAgentRunsDashboard,
-    createAgentRunsDashboardEvents
+    createAgentRunsDashboardEvents,
+    getAppResource
   };
 }
 
-function createJsonRenderReportEvents(id: string, title: string, data: AgentRunsDashboardData): AgentRunEvent[] {
-  return createAgentRunsReportPatches(data).map((patch) => ({
+function createAgentRunsMcpAppEvent(data: AgentRunsDashboardData): AgentRunEvent {
+  return {
     kind: "ui",
     ui: {
-      component: "json-render",
-      id,
-      patch,
-      title
-    }
-  }));
-}
-
-function createAgentRunsReportPatches(data: AgentRunsDashboardData): AgentJsonRenderUiPatch["patch"][] {
-  const failureRate = `${Math.round(data.metrics.failureRate * 100)}%`;
-
-  return [
-    { op: "add", path: "/root", value: "report" },
-    { op: "add", path: "/elements", value: {} },
-    {
-      op: "add",
-      path: "/elements/report",
-      value: {
-        children: ["metrics", "runs-table"],
-        props: {
-          description: "来自 MCP Host 调用 Toolbox 后随 Chat SSE 流式返回。",
-          title: "Agent 运行分析"
-        },
-        type: "Report"
-      }
-    },
-    {
-      op: "add",
-      path: "/elements/metrics",
-      value: {
-        children: ["metric-total", "metric-completed", "metric-failed", "metric-failure-rate"],
-        props: {},
-        type: "MetricGrid"
-      }
-    },
-    createMetricPatch("metric-total", "总运行数", String(data.metrics.totalRuns)),
-    createMetricPatch("metric-completed", "完成", String(data.metrics.completedRuns)),
-    createMetricPatch("metric-failed", "失败", String(data.metrics.failedRuns)),
-    createMetricPatch("metric-failure-rate", "失败率", failureRate),
-    {
-      op: "add",
-      path: "/elements/runs-table",
-      value: {
-        children: [],
-        props: {
-          columns: [
-            { key: "runId", label: "Run ID" },
-            { key: "eventCount", label: "事件数" },
-            { key: "terminalEvent", label: "终态" },
-            { key: "firstEventAt", label: "开始" },
-            { key: "lastEventAt", label: "结束" }
-          ],
-          rows: data.runs.map((run) => ({
-            eventCount: run.eventCount,
-            firstEventAt: run.firstEventAt,
-            lastEventAt: run.lastEventAt,
-            runId: run.runId,
-            terminalEvent: run.terminalEvent ?? "运行中"
-          })),
-          title: "最近 Agent runs"
-        },
-        type: "DataTable"
-      }
-    }
-  ];
-}
-
-function createMetricPatch(id: string, label: string, value: string): AgentJsonRenderUiPatch["patch"] {
-  return {
-    op: "add",
-    path: `/elements/${id}`,
-    value: {
-      children: [],
-      props: { label, value },
-      type: "Metric"
-    }
+      component: "mcp-app",
+      id: "agent-runs-mcp-app",
+      resource: {
+        mimeType: "text/html;profile=mcp-app",
+        uri: agentRunsMcpAppResourceUri
+      },
+      serverId: defaultMcpToolboxServerId,
+      title: "Agent Runs MCP App",
+      toolData: data,
+      toolName: "list-agent-runs"
+    } satisfies AgentMcpAppUi
   };
 }
 
@@ -360,6 +309,144 @@ function expandEnv(value: string, input: Record<string, unknown>) {
 
 function shouldRenderAgentRunsDashboard(prompt: string) {
   return /mcp|toolbox|统计|分析|图表|dashboard|运行|可交互/i.test(prompt);
+}
+
+function createAgentRunsMcpAppHtml() {
+  return `<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root { color-scheme: light; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      body { margin: 0; background: #ffffff; color: #0f172a; }
+      main { padding: 16px; }
+      header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+      h1 { margin: 0; font-size: 16px; line-height: 24px; }
+      p { margin: 4px 0 0; color: #64748b; font-size: 13px; line-height: 20px; }
+      button { border: 1px solid #0f172a; border-radius: 6px; background: #0f172a; color: #fff; cursor: pointer; font-size: 13px; padding: 8px 10px; }
+      button:disabled { cursor: not-allowed; opacity: .55; }
+      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+      .metric { border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; padding: 10px; }
+      .metric span { display: block; color: #64748b; font-size: 12px; }
+      .metric strong { display: block; margin-top: 4px; font-size: 18px; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { border-bottom: 1px solid #e2e8f0; padding: 8px; text-align: left; vertical-align: top; }
+      th { color: #64748b; font-size: 12px; font-weight: 600; text-transform: uppercase; }
+      tr:hover td { background: #f8fafc; }
+      .status { margin-top: 12px; color: #64748b; font-size: 12px; }
+      @media (max-width: 640px) { .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); } table { font-size: 12px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Agent Runs MCP App</h1>
+          <p>通过 MCP Apps postMessage bridge 调用 Host-managed Toolbox 工具。</p>
+        </div>
+        <button id="refresh" type="button">刷新 MCP 数据</button>
+      </header>
+      <section class="metrics" aria-label="Agent run metrics">
+        <div class="metric"><span>总运行数</span><strong id="total">0</strong></div>
+        <div class="metric"><span>完成</span><strong id="completed">0</strong></div>
+        <div class="metric"><span>失败</span><strong id="failed">0</strong></div>
+        <div class="metric"><span>失败率</span><strong id="failureRate">0%</strong></div>
+      </section>
+      <table>
+        <thead>
+          <tr><th>Run ID</th><th>事件数</th><th>终态</th><th>开始</th><th>结束</th></tr>
+        </thead>
+        <tbody id="runs"></tbody>
+      </table>
+      <div class="status" id="status">等待 Host 初始化。</div>
+    </main>
+    <script>
+      let requestId = 0;
+      const pending = new Map();
+      const button = document.getElementById("refresh");
+      const status = document.getElementById("status");
+
+      window.addEventListener("message", (event) => {
+        const message = event.data;
+        if (!message || message.jsonrpc !== "2.0") return;
+
+        if (message.method === "ui/initialize") {
+          renderDashboard(message.params && message.params.toolData);
+          status.textContent = "Host 已初始化 MCP App。";
+          return;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(message, "id")) {
+          const resolve = pending.get(message.id);
+          if (!resolve) return;
+          pending.delete(message.id);
+          resolve(message);
+        }
+      });
+
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        status.textContent = "正在通过 tools/call 请求最新数据...";
+        try {
+          const response = await callHostTool("list-agent-runs", { limit: 20 });
+          if (response.error) throw new Error(response.error.message || "tools/call failed");
+          renderRows(readToolRows(response.result));
+          status.textContent = "已通过 MCP Apps tools/call 刷新。";
+        } catch (error) {
+          status.textContent = error instanceof Error ? error.message : "刷新失败";
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      function callHostTool(name, args) {
+        const id = ++requestId;
+        const message = { jsonrpc: "2.0", id, method: "tools/call", params: { arguments: args, name } };
+        window.parent.postMessage(message, "*");
+        return new Promise((resolve) => pending.set(id, resolve));
+      }
+
+      function renderDashboard(data) {
+        if (!data) return;
+        document.getElementById("total").textContent = String(data.metrics.totalRuns);
+        document.getElementById("completed").textContent = String(data.metrics.completedRuns);
+        document.getElementById("failed").textContent = String(data.metrics.failedRuns);
+        document.getElementById("failureRate").textContent = Math.round(data.metrics.failureRate * 100) + "%";
+        renderRows(data.runs);
+      }
+
+      function renderRows(rows) {
+        const safeRows = Array.isArray(rows) ? rows : [];
+        document.getElementById("runs").innerHTML = safeRows.map((run) => (
+          "<tr><td>" + escapeHtml(run.runId) + "</td><td>" + escapeHtml(run.eventCount) + "</td><td>" +
+          escapeHtml(run.terminalEvent || "运行中") + "</td><td>" + escapeHtml(run.firstEventAt) + "</td><td>" +
+          escapeHtml(run.lastEventAt) + "</td></tr>"
+        )).join("");
+      }
+
+      function readToolRows(result) {
+        if (result && result.structuredContent && Array.isArray(result.structuredContent.result)) return result.structuredContent.result;
+        if (!result || !Array.isArray(result.content)) return [];
+        return result.content.flatMap((part) => {
+          if (!part || part.type !== "text" || typeof part.text !== "string") return [];
+          try {
+            const parsed = JSON.parse(part.text);
+            return Array.isArray(parsed) ? parsed : [parsed];
+          } catch {
+            return [];
+          }
+        });
+      }
+
+      function escapeHtml(value) {
+        return String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        })[char]);
+      }
+    </script>
+  </body>
+</html>`;
 }
 
 function readString(value: unknown) {

@@ -19,14 +19,12 @@ export { AgentRunInputSchema, AgentRunResultSchema, type AgentRunInput, type Age
 export {
   AgentArtifactSchema,
   AgentRunsDashboardDataSchema,
-  AgentRunsDashboardUiSchema,
-  AgentJsonRenderUiPatchSchema,
+  AgentMcpAppUiSchema,
   AgentRunUiSchema,
   AgentRunEventSchema,
   type AgentArtifact,
   type AgentRunsDashboardData,
-  type AgentRunsDashboardUi,
-  type AgentJsonRenderUiPatch,
+  type AgentMcpAppUi,
   type AgentRunUi,
   type AgentRunEvent
 } from "./agent-run-events";

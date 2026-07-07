@@ -73,7 +73,8 @@ describe("POST /agent/chat", () => {
           metrics: { completedRuns: 0, failedRuns: 0, failureRate: 0, totalRuns: 0 },
           runs: []
         }),
-        createAgentRunsDashboardEvents: async () => []
+        createAgentRunsDashboardEvents: async () => [],
+        getAppResource: () => ({ html: "", mimeType: "text/html;profile=mcp-app", uri: "ui://agent-template/agent-runs" })
       },
       async runAgent(input, _env, options) {
         options?.onEvent?.({ kind: "text", text: "Working" });
@@ -141,13 +142,20 @@ describe("POST /agent/chat", () => {
           {
             kind: "ui",
             ui: {
-              component: "json-render",
-              id: "agent-runs-report",
-              patch: { op: "add", path: "/root", value: "report" },
-              title: "Agent 运行分析"
+              component: "mcp-app",
+              id: "agent-runs-mcp-app",
+              resource: {
+                mimeType: "text/html;profile=mcp-app",
+                uri: "ui://agent-template/agent-runs"
+              },
+              serverId: "toolbox",
+              title: "Agent Runs MCP App",
+              toolData: { metrics: { totalRuns: 1 }, runs: [] },
+              toolName: "list-agent-runs"
             }
           }
-        ]
+        ],
+        getAppResource: () => ({ html: "", mimeType: "text/html;profile=mcp-app", uri: "ui://agent-template/agent-runs" })
       },
       async runAgent(input, _env, options) {
         options?.onEvent?.({ kind: "text", text: "Working" });
@@ -174,8 +182,8 @@ describe("POST /agent/chat", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.body).toContain('"kind":"tool-call","tool":"mcp-host/toolbox/list-agent-runs"');
-    expect(response.body).toContain('"kind":"ui","ui":{"component":"json-render"');
-    expect(response.body).toContain('"patch":{"op":"add","path":"/root","value":"report"}');
+    expect(response.body).toContain('"kind":"ui","ui":{"component":"mcp-app"');
+    expect(response.body).toContain('"uri":"ui://agent-template/agent-runs"');
   });
 });
 
@@ -195,7 +203,12 @@ describe("MCP Host API", () => {
           metrics: { completedRuns: 0, failedRuns: 0, failureRate: 0, totalRuns: 0 },
           runs: []
         }),
-        createAgentRunsDashboardEvents: async () => []
+        createAgentRunsDashboardEvents: async () => [],
+        getAppResource: () => ({
+          html: "<!doctype html><html><body>MCP App</body></html>",
+          mimeType: "text/html;profile=mcp-app",
+          uri: "ui://agent-template/agent-runs"
+        })
       }
     });
 
@@ -205,6 +218,12 @@ describe("MCP Host API", () => {
     await expect(app.inject({ method: "GET", url: "/mcp/servers/toolbox/tools" }).then((response) => response.json())).resolves.toEqual({
       tools: [{ inputSchema: { type: "object" }, name: "list-agent-runs" }]
     });
+    const resource = await app.inject({
+      method: "GET",
+      url: "/mcp/apps/resource?uri=ui%3A%2F%2Fagent-template%2Fagent-runs"
+    });
+    expect(resource.headers["content-type"]).toContain("text/html;profile=mcp-app");
+    expect(resource.body).toContain("MCP App");
   });
 });
 

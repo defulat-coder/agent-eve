@@ -183,7 +183,7 @@ describe("MCP Host", () => {
     });
   });
 
-  it("builds Agent run dashboard UI events inside the Host boundary", async () => {
+  it("builds MCP App UI events inside the Host boundary", async () => {
     const host = createMcpHost(parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }), {
       createClient: async () => ({
         async listTools() {
@@ -221,29 +221,67 @@ describe("MCP Host", () => {
         tool: "mcp-host/toolbox/list-agent-runs"
       }
     ]);
-    expect(events.slice(2)).toEqual(
-      expect.arrayContaining([
-        {
-          kind: "ui",
-          ui: {
-            component: "json-render",
-            id: "agent-runs-report",
-            patch: { op: "add", path: "/root", value: "report" },
-            title: "Agent 运行分析"
-          }
-        },
-        {
-          kind: "ui",
-          ui: {
-            component: "json-render",
-            id: "agent-runs-report",
-            patch: expect.objectContaining({ op: "add", path: "/elements/runs-table" }),
-            title: "Agent 运行分析"
-          }
-        }
-      ])
-    );
+    expect(events.slice(2)).toEqual([
+      {
+        kind: "ui",
+        ui: expect.objectContaining({
+          component: "mcp-app",
+          resource: {
+            mimeType: "text/html;profile=mcp-app",
+            uri: "ui://agent-template/agent-runs"
+          },
+          serverId: "toolbox",
+          toolName: "list-agent-runs"
+        })
+      }
+    ]);
     await expect(host.createAgentRunsDashboardEvents("hello")).resolves.toEqual([]);
+  });
+
+  it("builds an MCP App event and HTML resource for interactive prompts", async () => {
+    const host = createMcpHost(parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }), {
+      createClient: async () => ({
+        async listTools() {
+          return { tools: [] };
+        },
+        async callTool() {
+          return {
+            content: [],
+            structuredContent: {
+              result: [
+                {
+                  eventCount: 4,
+                  firstEventAt: "2026-07-04T11:30:00.000Z",
+                  lastEventAt: "2026-07-04T11:30:22.000Z",
+                  runId: "run_knowledge_001",
+                  terminalEvent: "agent.run.completed"
+                }
+              ]
+            }
+          };
+        }
+      })
+    });
+
+    const events = await host.createAgentRunsDashboardEvents("用 MCP App 协议给我一个可交互统计");
+
+    expect(events).toContainEqual({
+      kind: "ui",
+      ui: expect.objectContaining({
+        component: "mcp-app",
+        resource: {
+          mimeType: "text/html;profile=mcp-app",
+          uri: "ui://agent-template/agent-runs"
+        },
+        serverId: "toolbox",
+        toolName: "list-agent-runs"
+      })
+    });
+    expect(host.getAppResource("ui://agent-template/agent-runs")).toMatchObject({
+      mimeType: "text/html;profile=mcp-app",
+      uri: "ui://agent-template/agent-runs"
+    });
+    expect(host.getAppResource("ui://agent-template/agent-runs").html).toContain("tools/call");
   });
 
   it("builds Agent run dashboard data from Toolbox text rows", async () => {

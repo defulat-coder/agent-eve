@@ -46,6 +46,13 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     };
   });
 
+  app.get("/mcp/apps/resource", async (request, reply) => {
+    const resourceUri = readResourceUri(request.query);
+    const resource = mcpHost.getAppResource(resourceUri);
+
+    return reply.type(resource.mimeType).send(resource.html);
+  });
+
   app.post("/mcp/servers/:serverId/tools/:toolName/call", async (request) => {
     const { serverId, toolName } = request.params as { serverId: string; toolName: string };
 
@@ -100,6 +107,14 @@ function readToolArguments(input: unknown): Record<string, unknown> {
   }
 
   return isRecord(input.arguments) ? input.arguments : input;
+}
+
+function readResourceUri(input: unknown) {
+  if (!isRecord(input) || typeof input.uri !== "string") {
+    throw new Error("MCP App resource uri is required");
+  }
+
+  return input.uri;
 }
 
 function isRecord(input: unknown): input is Record<string, unknown> {

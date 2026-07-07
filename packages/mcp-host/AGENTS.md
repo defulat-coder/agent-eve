@@ -11,8 +11,8 @@
 - server registry 默认读取根目录 `mcp-host.config.json` 的 `servers`；文件不存在时才回退环境变量，旧的 `toolboxUrl` / `toolboxToolset` 仅作为兼容入口。
 - `mcp-host.config.json` 支持 `${NAME}` 和 `${NAME:-fallback}` 字符串占位，用于同一文件兼容本机和 Docker。
 - 浏览器不直接连接 MCP Server；`apps/web` 通过 `apps/api` 使用这里的能力。
-- Tool call、resource read 和 UI artifact 需要返回结构化结果，供 API SSE 和 Web timeline 渲染。
-- Structured Agent UI 的数据到 `json-render` patch stream 转换放这里；API 只负责转发 SSE，Web 只负责渲染组件目录。
+- Tool call、resource read 和 MCP App 需要返回结构化结果，供 API SSE 和 Web Chat 渲染。
+- Agent 交互式 UI 统一用 MCP App：这里负责 `ui://` resource、`text/html;profile=mcp-app` 内容和初始 tool data，不再生成 JSON Render patch stream。
 
 ## 不应该做
 
@@ -26,7 +26,6 @@
 - MCP architecture: `https://modelcontextprotocol.io/docs/learn/architecture`
 - MCP clients: `https://modelcontextprotocol.io/docs/learn/client-concepts`
 - MCP Apps overview: `https://modelcontextprotocol.io/extensions/apps/overview`
-- json-render: `https://github.com/vercel-labs/json-render`
 
 ## 验证
 

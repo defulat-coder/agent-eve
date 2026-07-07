@@ -96,12 +96,6 @@ importers:
       '@agent-template/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@json-render/core':
-        specifier: '>=0.19.0 <1.0.0'
-        version: 0.19.0(zod@4.4.3)
-      '@json-render/react':
-        specifier: '>=0.19.0 <1.0.0'
-        version: 0.19.0(react@19.2.7)(zod@4.4.3)
       next:
         specifier: ^16.2.9
         version: 16.2.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -213,7 +207,7 @@ importers:
         version: 7.0.14(zod@4.4.3)
       eve:
         specifier: latest
-        version: 0.19.0(@electric-sql/pglite@0.4.1)(ai@7.0.14(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(giget@3.3.0)(ioredis@5.11.1)(jiti@2.7.0)(mysql2@3.15.3)(rollup@4.62.2)(vite@8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
+        version: 0.20.0(@electric-sql/pglite@0.4.1)(ai@7.0.14(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(giget@3.3.0)(ioredis@5.11.1)(jiti@2.7.0)(mysql2@3.15.3)(rollup@4.62.2)(vite@8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -999,16 +993,6 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
-
-  '@json-render/core@0.19.0':
-    resolution: {integrity: sha512-vvcyZ+10EDZKbEyB1J2kXOGfDaiZR2LurZGSqi2r5STHyKr+Te85DWaBxTwRGgM7U1LtIvNx85BzzjElRKoAIg==}
-    peerDependencies:
-      zod: ^4.0.0
-
-  '@json-render/react@0.19.0':
-    resolution: {integrity: sha512-kTW6b6cSNRrlEfCUf/69SLoLn+CufC968ruge9tnQlp9pDTGG/SK8pgM541FdgwMFA4zm3s5mpM3G8rdODKc/A==}
-    peerDependencies:
-      react: ^19.2.3
 
   '@kurkle/color@0.3.4':
     resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
@@ -2174,8 +2158,8 @@ packages:
     resolution: {integrity: sha512-aIL5Fx7mawVa300al2BnEE4iNvo1qETxLrPI/o05L7z6go7fCw1J6EQmbK4FmJ2AS7kgVF/KEZWufBfdClMcPg==}
     engines: {node: '>= 0.6'}
 
-  eve@0.19.0:
-    resolution: {integrity: sha512-fZ4gyBUoJ8FWtA+vUz6Q/OWJDXPf++RYsbVL+NrEAn2VJCrZyiuDj4todsBJlDib3+sZtzHMsNSn06EP0j0++w==}
+  eve@0.20.0:
+    resolution: {integrity: sha512-O218jbwGCjg0ygTcBKuIy+c4UqL84/Zyala9qOAEhiMEVUpllUU6VZriQcnQJkkQscpOiOikF0rcWgUABBVrrw==}
     engines: {node: '>=24'}
     hasBin: true
     peerDependencies:
@@ -3973,17 +3957,6 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@json-render/core@0.19.0(zod@4.4.3)':
-    dependencies:
-      zod: 4.4.3
-
-  '@json-render/react@0.19.0(react@19.2.7)(zod@4.4.3)':
-    dependencies:
-      '@json-render/core': 0.19.0(zod@4.4.3)
-      react: 19.2.7
-    transitivePeerDependencies:
-      - zod
-
   '@kurkle/color@0.3.4': {}
 
   '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
@@ -5017,7 +4990,7 @@ snapshots:
 
   etag@1.8.1: {}
 
-  eve@0.19.0(@electric-sql/pglite@0.4.1)(ai@7.0.14(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(giget@3.3.0)(ioredis@5.11.1)(jiti@2.7.0)(mysql2@3.15.3)(rollup@4.62.2)(vite@8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)):
+  eve@0.20.0(@electric-sql/pglite@0.4.1)(ai@7.0.14(zod@4.4.3))(chokidar@5.0.0)(dotenv@17.4.2)(giget@3.3.0)(ioredis@5.11.1)(jiti@2.7.0)(mysql2@3.15.3)(rollup@4.62.2)(vite@8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)):
     dependencies:
       ai: 7.0.14(zod@4.4.3)
       nitro: 3.0.260610-beta(@electric-sql/pglite@0.4.1)(chokidar@5.0.0)(dotenv@17.4.2)(giget@3.3.0)(ioredis@5.11.1)(jiti@2.7.0)(mysql2@3.15.3)(rollup@4.62.2)(vite@8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
