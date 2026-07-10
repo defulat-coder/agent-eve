@@ -1,18 +1,10 @@
 {
+  "extends": "../../tsconfig.build.json",
   "compilerOptions": {
-    "target": "ES2022",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "rootDir": "src",
-    "outDir": "dist",
-    "declaration": true,
-    "sourceMap": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true
+    "outDir": "dist"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
