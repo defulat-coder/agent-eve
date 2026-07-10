@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by [ADR 0006: Agent-Owned MCP Connections](./0006-agent-owned-mcp-connections.md)
 
 ## Context
 

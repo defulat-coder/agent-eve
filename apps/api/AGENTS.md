@@ -13,6 +13,7 @@
 - 任务队列使用 BullMQ，并通过 `@agent-template/shared` 的队列名和 payload schema 保持类型一致。
 - 日志使用 `@agent-template/logger`。
 - Agent run 和 Agent runtime 状态通过 `@agent-template/agent` 读取，不在 API 内直接调用具体 runtime。
+- 不提供 MCP server registry、tool discovery、tool call 或 resource proxy route；MCP 属于选中的 Agent runtime。
 
 ## 不应该做
 

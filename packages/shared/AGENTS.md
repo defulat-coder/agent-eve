@@ -9,7 +9,6 @@
 - 健康检查响应 schema 放这里。
 - BullMQ job name、queue name、Agent job payload schema 和 Agent job accepted metadata schema 放这里。
 - Agent run input/result schema、Agent run event protocol 和 artifact schema 放这里。
-- MCP App 的跨进程事件协议放这里；只定义 `mcp-app` event schema，不引入 React 或浏览器 runtime。
 - Redis URL 到 BullMQ connection options 的纯解析放这里。
 - 导出的类型应由 schema 推导，避免 schema 和 type 分叉。
 

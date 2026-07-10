@@ -79,7 +79,7 @@ packages/
 
 `apps/toolbox/tools.yaml` 定义生产 Agent 可加载的数据库工具。默认 toolset 是 `agent_template_read_model`：保留 `TemplateEvent` 的只读运行观测，同时提供合成电商的日销售、渠道、商品排行、订单详情和履约异常查询。`pnpm db:seed` 会写入 96 个脱敏客户、24 个商品和 600 个确定性订单；完整的参数、索引和 MCP 验证命令见 [apps/toolbox/README.md](apps/toolbox/README.md)。prebuilt generic tools 仅用于开发期探索，不作为生产 Agent 默认能力。
 
-`mcp-host.config.json` 通过 `servers` registry 定义 MCP Host 要连接的 server；默认 `toolbox` server 使用 `TOOLBOX_URL` 和 `TOOLBOX_TOOLSET` 占位，修改后重启 API/Agent 服务即可生效，不需要改 Cloud 或 Eve runtime 代码。
+MCP 连接由各 Agent runtime 自己维护：Claude 的 HTTP MCP config 和 allowlist 位于 `packages/agent-claude/src/mcp.ts`，Eve 的 filesystem-first connection 和 allowlist 位于 `packages/agent-eve/agent/connections/toolbox.ts`。两者都从 `TOOLBOX_URL` 读取 endpoint；API 和 Web 不维护 MCP registry 或代理 tool/resource 请求。
 
 Kimi Code 通过 Anthropic-compatible 协议接入两套 Agent runtime：
 

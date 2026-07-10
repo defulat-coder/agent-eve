@@ -72,7 +72,6 @@ pnpm db:seed
 - `packages/agent`: Agent runtime contract、`AGENT_RUNTIME` selector 和公共入口。
 - `packages/agent-claude`: Claude Agent SDK backed runtime。
 - `packages/agent-eve`: Eve filesystem-first runtime 和 `agent/` authored surface。
-- `packages/mcp-host`: MCP Host 核心边界，统一管理 MCP server registry、client lifecycle、tools/list、tools/call 和交互式 UI 输出。
 
 ## 架构规则
 
@@ -82,11 +81,10 @@ pnpm db:seed
 - `apps/*` 只依赖 `@agent-template/agent` 的公共 runtime 边界，不直接依赖具体 runtime package。
 - Agent runtime 只通过 `AGENT_RUNTIME=claude|eve` 选择；不要从 request 或 job payload 覆盖。
 - Kimi Code 接入 Cloud 和 Eve 都使用 Anthropic-compatible 协议；API Key 只放本地 `.env` 或部署环境变量。
-- `TOOLBOX_URL` 和 `TOOLBOX_TOOLSET` 只表达 Host-managed MCP 连接信息，不参与 runtime 选择。
-- 生产 Agent 默认只加载 `apps/toolbox/tools.yaml` 中显式声明的自定义 toolset。
-- MCP Host 是平台能力，统一放在 `@agent-template/mcp-host`；Claude/Eve runtime 不直接持有 Toolbox MCP connection。
-- MCP Host server registry 默认从根目录 `mcp-host.config.json` 的 `servers` 读取；改 MCP Server 地址或 toolset 时改文件并重启服务，不改 Cloud/Eve runtime 代码。生产 server 的 `allowedTools` 是 Host 侧 allowlist；新增 Toolbox tool 时需同步更新 toolset 和 allowlist。旧的 `toolboxUrl` / `toolboxToolset` 仅作为兼容入口。
-- Web 不直接连接 MCP Server；交互式 MCP 输出通过 `apps/api` 的 Chat SSE 或 MCP Host API 返回到前端。
+- `TOOLBOX_URL` 是 Agent runtime 自己持有的 MCP 连接地址，不参与 runtime 选择；不再维护平台级 MCP registry 或 `TOOLBOX_TOOLSET`。
+- Claude runtime 在 `packages/agent-claude/src/mcp.ts` 维护 HTTP MCP config 和 allowlist；Eve runtime 在 `packages/agent-eve/agent/connections/toolbox.ts` 维护 filesystem-first MCP connection 和 allowlist。
+- 新增或删除 Toolbox Tool 时，必须同步更新 Claude 与 Eve 两个 runtime 的 allowlist；不要在 `packages/shared` 或 `apps/api` 重新抽平台级 MCP module。
+- API/Web 不提供 `tools/list`、`tools/call`、MCP resource 或 MCP App 代理路由；MCP tool discovery 和调用只发生在选中的 Agent runtime 内。
 - Queue runtime 暂不抽新 module；等第三个 queue consumer 或可替换 adapter 需求出现再抽。
 
 ## 提交规则

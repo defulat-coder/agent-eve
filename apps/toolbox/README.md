@@ -8,7 +8,7 @@
 - 所有列表工具都有上限；最近查询固定在 30 天，任意时间窗由运行时校验为 ISO-8601 UTC 的 `[from, to)`，最长 31 天。
 - 所有工具只读；`TemplateEvent` payload 会原样返回的工具仅用于可信的内部运营 Agent，生产接入时仍需最小权限数据库角色。
 - 不使用 `templateParameters`，避免让模型控制表名、列名、排序字段或 SQL 结构。
-- `mcp-host.config.json` 的 `allowedTools` 是 Host 侧可执行 allowlist。Google Toolbox 的 toolset 由其 Client SDK 选择；裸 MCP `tools/list` 默认可见服务端全部工具，因此新增 Tool 时必须同时更新 allowlist。
+- 裸 MCP `tools/list` 默认可见服务端全部工具；Claude 与 Eve 分别在 `packages/agent-claude/src/mcp.ts` 和 `packages/agent-eve/agent/connections/toolbox.ts` 维护 runtime allowlist，因此新增 Tool 时必须同步更新两处。
 
 ## 电商业务验证数据（主要路径）
 
@@ -23,13 +23,9 @@
 | `get-ecommerce-order-detail`            | 单订单与订单项核查       | 精确订单号                               |
 | `list-ecommerce-fulfillment-exceptions` | 已付款未履约订单         | 时间窗 + 最大 100 行                     |
 
-## 电商 MCP Docker 集成验证
+## 电商 MCP Docker 集成验证（仅显式要求时）
 
-```bash
-pnpm --filter @agent-template/mcp-host verify:ecommerce-toolbox:docker
-```
-
-该门禁会启动 PostgreSQL 与 Toolbox、生成 Prisma Client、应用已提交 migration、写入 fixture、重建 Toolbox，然后精确断言裸 MCP `tools/list`、Host allowlist 和六个电商 Tool 的确定性返回值。
+启动 PostgreSQL、Toolbox 并写入 fixture 后，使用下列 Toolbox CLI 命令验证确定性返回值；Agent runtime 的连接发现和 allowlist 由各自 package 测试及 `eve:info` 验证。
 
 验证日销售、渠道和商品排行：
 
@@ -97,12 +93,13 @@ docker compose exec toolbox /toolbox --config /app/tools.yaml invoke list-agent-
 
 实际多租户项目不得直接复用当前模板的跨组织查询。应先将稳定的 `tenantId` / `organizationId` 提升为一等列，使用受限数据库角色和 RLS，再为每个 Tool 强制注入可信身份范围；不要把租户范围交给模型提供的 `templateParameters`。
 
-修改工具后，依次运行：
+修改工具或 Skill 后，默认先执行纯本地验证：
 
 ```bash
-docker compose config
-docker compose up -d --force-recreate toolbox
 pnpm --filter @agent-template/shared test
 pnpm --filter @agent-template/agent-claude test
 pnpm --filter @agent-template/agent-eve test
+pnpm --filter @agent-template/agent-eve eve:info
 ```
+
+只有明确要求容器集成验证时，才运行前述 Docker 命令。

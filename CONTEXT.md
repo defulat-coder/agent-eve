@@ -25,7 +25,7 @@ An event emitted while an Agent runtime executes an Agent run.
 _Avoid_: UI timeline item, log line
 
 **Agent message part**:
-One ordered piece of an assistant message, such as text, a folded tool event, or an MCP App block.
+One ordered piece of an assistant message, such as text or a folded tool event.
 _Avoid_: Timeline item, standalone panel
 
 **Template event**:
@@ -49,20 +49,12 @@ A Tool provider backed by MCP Toolbox for Databases.
 _Avoid_: Database helper, embedded database client
 
 **Toolbox toolset**:
-A named group of Toolbox server tools that an Agent runtime may load for a specific Agent capability.
+A named group of Toolbox server tools used to generate a focused Agent capability.
 _Avoid_: Runtime plugin, database permission set
 
-**MCP Host**:
-The user-facing AI application that manages MCP server connections, presents chat, and renders MCP Apps or other interactive MCP outputs.
-_Avoid_: MCP server, Tool provider
-
-**MCP Client**:
-A protocol client owned by an MCP Host or Agent runtime that maintains one connection to one MCP Server.
-_Avoid_: Web page, Agent runtime
-
-**MCP App**:
-An interactive UI returned by an MCP tool through a `ui://` HTML resource and rendered by the MCP Host inside Chat.
-_Avoid_: JSON Render spec, standalone web page
+**Agent MCP connection**:
+A connection owned by one Agent runtime that exposes an allowed subset of an external Tool provider to that runtime.
+_Avoid_: MCP Host, platform MCP registry
 
 **Claude Agent runtime**:
 A Claude Agent SDK backed Agent runtime.
