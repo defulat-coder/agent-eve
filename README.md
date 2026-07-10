@@ -1,12 +1,28 @@
 # Agent Template
 
-一个基于 pnpm Workspace 和 Turborepo 的 TypeScript 项目模板，包含 Next.js 前端、Fastify API、BullMQ Worker、Prisma/PostgreSQL、Redis、MCP Toolbox、Claude Agent SDK、Zod、Pino 和 Vitest。
+一个基于 pnpm Workspace 和 Turborepo 的 TypeScript 7 项目模板，包含 Next.js 前端、Fastify API、BullMQ Worker、Prisma/PostgreSQL、Redis、MCP Toolbox、Claude Agent SDK、Zod、Pino 和 Vitest。
 
 ## 技术栈
 
-- 前端：pnpm + TypeScript + Next.js + React + Tailwind CSS + shadcn/ui + Vitest
-- 后端：TypeScript + Fastify + Prisma + PostgreSQL + Redis + BullMQ + MCP Toolbox + Claude Agent SDK + Eve + Zod + Pino + Vitest
+- 前端：pnpm + TypeScript 7 + Next.js + React + Tailwind CSS + shadcn/ui + Vitest
+- 后端：TypeScript 7 + Fastify + Prisma + PostgreSQL + Redis + BullMQ + MCP Toolbox + Claude Agent SDK + Eve + Zod + Pino + Vitest
 - 工程化：pnpm Workspace + Turborepo
+
+## TypeScript 7
+
+项目默认使用 TypeScript 7 原生编译器：`pnpm exec tsc` 和各 workspace 的
+`typecheck`、直接 `tsc` 构建均执行 TS7。TypeScript 7.0 尚未提供稳定的
+JavaScript API，因此同时保留 TypeScript 6 兼容包，供 `typescript-eslint`、
+Next.js language-service plugin 等工具使用。
+
+```bash
+pnpm exec tsc --version   # 默认编译器：TypeScript 7
+pnpm exec tsc6 --version  # 兼容编译器：TypeScript 6
+pnpm typecheck            # 使用 TypeScript 7 检查全部 workspace
+```
+
+在依赖稳定的 TypeScript 7 JavaScript API 且相关工具完成适配前，不要移除
+`@typescript/typescript6` 兼容层。
 
 ## 快速开始
 
