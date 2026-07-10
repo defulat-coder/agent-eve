@@ -6,7 +6,7 @@ import {
   AgentRunsDashboardDataSchema,
   type AgentMcpAppUi,
   type AgentRunEvent,
-  type AgentRunsDashboardData
+  type AgentRunsDashboardData,
 } from "@agent-template/shared";
 import { z } from "zod";
 
@@ -17,13 +17,21 @@ export const agentRunsMcpAppResourceUri = "ui://agent-template/agent-runs";
 
 export const McpHostServerConfigSchema = z.object({
   url: z.string().url(),
-  toolset: z.string().min(1).default(defaultMcpToolboxToolset)
+  toolset: z.string().min(1).default(defaultMcpToolboxToolset),
+  allowedTools: z
+    .array(z.string().min(1))
+    .min(1)
+    .refine(
+      (tools) => new Set(tools).size === tools.length,
+      "allowedTools must not contain duplicates",
+    )
+    .optional(),
 });
 
 export const McpHostConfigSchema = z.object({
   servers: z.record(z.string().min(1), McpHostServerConfigSchema).default({}),
   toolboxUrl: z.string().url().optional(),
-  toolboxToolset: z.string().min(1).default(defaultMcpToolboxToolset)
+  toolboxToolset: z.string().min(1).default(defaultMcpToolboxToolset),
 });
 
 export type McpHostConfig = z.infer<typeof McpHostConfigSchema>;
@@ -32,6 +40,16 @@ export type McpHostServer = {
   id: string;
   url: string;
   toolset: string;
+};
+
+type McpHostConfiguredServer = McpHostServer & {
+  allowedTools?: string[] | undefined;
+};
+
+type McpHostServerConfigInput = {
+  url: string;
+  toolset: string;
+  allowedTools?: unknown;
 };
 
 export type McpHostTool = {
@@ -55,8 +73,17 @@ export type AgentRunSummary = {
 };
 
 type McpClientLike = {
-  listTools(): Promise<{ tools: Array<{ name: string; description?: string | undefined; inputSchema: Record<string, unknown> }> }>;
-  callTool(input: { name: string; arguments?: Record<string, unknown> }): Promise<McpHostToolCallResult>;
+  listTools(): Promise<{
+    tools: Array<{
+      name: string;
+      description?: string | undefined;
+      inputSchema: Record<string, unknown>;
+    }>;
+  }>;
+  callTool(input: {
+    name: string;
+    arguments?: Record<string, unknown>;
+  }): Promise<McpHostToolCallResult>;
   close?(): Promise<void>;
 };
 
@@ -64,72 +91,109 @@ type McpHostOptions = {
   createClient?: (server: McpHostServer) => Promise<McpClientLike>;
 };
 
-export function parseMcpHostConfig(input: Record<string, unknown>): McpHostConfig {
-  const toolboxUrl = readString(input.toolboxUrl) ?? readString(input.TOOLBOX_URL);
-  const toolboxToolset = readString(input.toolboxToolset) ?? readString(input.TOOLBOX_TOOLSET) ?? defaultMcpToolboxToolset;
+export function parseMcpHostConfig(
+  input: Record<string, unknown>,
+): McpHostConfig {
+  const toolboxUrl =
+    readString(input.toolboxUrl) ?? readString(input.TOOLBOX_URL);
+  const toolboxToolset =
+    readString(input.toolboxToolset) ??
+    readString(input.TOOLBOX_TOOLSET) ??
+    defaultMcpToolboxToolset;
   const servers = readServerConfigMap(input.servers);
 
   if (toolboxUrl && !servers[defaultMcpToolboxServerId]) {
     servers[defaultMcpToolboxServerId] = {
       toolset: toolboxToolset,
-      url: toolboxUrl
+      url: toolboxUrl,
     };
   }
 
   const parsed = McpHostConfigSchema.parse({
     servers,
     toolboxToolset,
-    toolboxUrl
+    toolboxUrl,
   });
   const toolboxServer = parsed.servers[defaultMcpToolboxServerId];
 
   return {
     ...parsed,
     toolboxToolset: toolboxServer?.toolset ?? parsed.toolboxToolset,
-    ...(toolboxServer ? { toolboxUrl: toolboxServer.url } : {})
+    ...(toolboxServer ? { toolboxUrl: toolboxServer.url } : {}),
   };
 }
 
-export function loadMcpHostConfig(input: Record<string, unknown> = process.env): McpHostConfig {
+export function loadMcpHostConfig(
+  input: Record<string, unknown> = process.env,
+): McpHostConfig {
   const fileConfig = readMcpHostConfigFile(input);
 
   return parseMcpHostConfig({
     ...input,
-    ...fileConfig
+    ...fileConfig,
   });
 }
 
-export function createMcpHost(config: McpHostConfig, options: McpHostOptions = {}) {
+export function createMcpHost(
+  config: McpHostConfig,
+  options: McpHostOptions = {},
+) {
   const createClient = options.createClient ?? createMcpClient;
 
   function getServers(): McpHostServer[] {
-    return Object.entries(config.servers).map(([id, server]) => ({
-      id,
-      toolset: server.toolset,
-      url: `${server.url.replace(/\/$/, "")}/mcp`
-    }));
-  }
+    return Object.keys(config.servers).map((serverId) => {
+      const { id, toolset, url } = getConfiguredServer(serverId);
 
-  async function listTools(serverId = defaultMcpToolboxServerId): Promise<McpHostTool[]> {
-    return withClient(serverId, async (client) => {
-      const result = await client.listTools();
-      return result.tools.map((tool) => ({
-        name: tool.name,
-        ...(tool.description ? { description: tool.description } : {}),
-        inputSchema: tool.inputSchema
-      }));
+      return { id, toolset, url };
     });
   }
 
-  async function callTool(serverId: string, name: string, args: Record<string, unknown> = {}): Promise<McpHostToolCallResult> {
-    return withClient(serverId, (client) => client.callTool({ name, arguments: args }));
+  async function listTools(
+    serverId = defaultMcpToolboxServerId,
+  ): Promise<McpHostTool[]> {
+    return withClient(serverId, async (client, server) => {
+      const result = await client.listTools();
+      return result.tools
+        .filter((tool) => isToolAllowed(server, tool.name))
+        .map((tool) => ({
+          name: tool.name,
+          ...(tool.description ? { description: tool.description } : {}),
+          inputSchema: tool.inputSchema,
+        }));
+    });
   }
 
-  async function createAgentRunsDashboard(limit = 20): Promise<AgentRunsDashboardData> {
-    const result = await callTool(defaultMcpToolboxServerId, "list-agent-runs", { limit });
+  async function callTool(
+    serverId: string,
+    name: string,
+    args: Record<string, unknown> = {},
+  ): Promise<McpHostToolCallResult> {
+    return withClient(serverId, (client, server) => {
+      if (!isToolAllowed(server, name)) {
+        throw new Error(
+          `MCP tool ${name} is not allowed for server ${serverId}`,
+        );
+      }
+
+      return client.callTool({ name, arguments: args });
+    });
+  }
+
+  async function createAgentRunsDashboard(
+    limit = 20,
+  ): Promise<AgentRunsDashboardData> {
+    const result = await callTool(
+      defaultMcpToolboxServerId,
+      "list-agent-runs",
+      { limit },
+    );
     const runs = readAgentRunRows(result);
-    const completedRuns = runs.filter((run) => run.terminalEvent === "agent.run.completed").length;
-    const failedRuns = runs.filter((run) => run.terminalEvent === "agent.run.failed").length;
+    const completedRuns = runs.filter(
+      (run) => run.terminalEvent === "agent.run.completed",
+    ).length;
+    const failedRuns = runs.filter(
+      (run) => run.terminalEvent === "agent.run.failed",
+    ).length;
 
     return AgentRunsDashboardDataSchema.parse({
       runs,
@@ -137,12 +201,14 @@ export function createMcpHost(config: McpHostConfig, options: McpHostOptions = {
         totalRuns: runs.length,
         completedRuns,
         failedRuns,
-        failureRate: runs.length === 0 ? 0 : failedRuns / runs.length
-      }
+        failureRate: runs.length === 0 ? 0 : failedRuns / runs.length,
+      },
     });
   }
 
-  async function createAgentRunsDashboardEvents(prompt: string): Promise<AgentRunEvent[]> {
+  async function createAgentRunsDashboardEvents(
+    prompt: string,
+  ): Promise<AgentRunEvent[]> {
     if (!shouldRenderAgentRunsDashboard(prompt)) {
       return [];
     }
@@ -152,15 +218,15 @@ export function createMcpHost(config: McpHostConfig, options: McpHostOptions = {
 
     return [
       {
-        input: "{\"limit\":20}",
+        input: '{"limit":20}',
         kind: "tool-call",
-        tool
+        tool,
       },
       {
         kind: "tool-result",
-        tool
+        tool,
       },
-      createAgentRunsMcpAppEvent(data)
+      createAgentRunsMcpAppEvent(data),
     ];
   }
 
@@ -172,20 +238,35 @@ export function createMcpHost(config: McpHostConfig, options: McpHostOptions = {
     return {
       html: createAgentRunsMcpAppHtml(),
       mimeType: "text/html;profile=mcp-app" as const,
-      uri: agentRunsMcpAppResourceUri
+      uri: agentRunsMcpAppResourceUri,
     };
   }
 
-  async function withClient<T>(serverId: string, task: (client: McpClientLike) => Promise<T>): Promise<T> {
-    const server = getServers().find((candidate) => candidate.id === serverId);
-    if (!server) {
-      throw new Error(`Unknown MCP server: ${serverId}`);
-    }
+  function getConfiguredServer(serverId: string): McpHostConfiguredServer {
+    const server = config.servers[serverId];
+    if (!server) throw new Error(`Unknown MCP server: ${serverId}`);
+
+    return {
+      id: serverId,
+      toolset: server.toolset,
+      url: `${server.url.replace(/\/$/, "")}/mcp`,
+      ...(server.allowedTools ? { allowedTools: server.allowedTools } : {}),
+    };
+  }
+
+  async function withClient<T>(
+    serverId: string,
+    task: (
+      client: McpClientLike,
+      server: McpHostConfiguredServer,
+    ) => Promise<T>,
+  ): Promise<T> {
+    const server = getConfiguredServer(serverId);
 
     const client = await createClient(server);
 
     try {
-      return await task(client);
+      return await task(client, server);
     } finally {
       await client.close?.();
     }
@@ -197,11 +278,17 @@ export function createMcpHost(config: McpHostConfig, options: McpHostOptions = {
     callTool,
     createAgentRunsDashboard,
     createAgentRunsDashboardEvents,
-    getAppResource
+    getAppResource,
   };
 }
 
-function createAgentRunsMcpAppEvent(data: AgentRunsDashboardData): AgentRunEvent {
+function isToolAllowed(server: McpHostConfiguredServer, toolName: string) {
+  return !server.allowedTools || server.allowedTools.includes(toolName);
+}
+
+function createAgentRunsMcpAppEvent(
+  data: AgentRunsDashboardData,
+): AgentRunEvent {
   return {
     kind: "ui",
     ui: {
@@ -209,36 +296,46 @@ function createAgentRunsMcpAppEvent(data: AgentRunsDashboardData): AgentRunEvent
       id: "agent-runs-mcp-app",
       resource: {
         mimeType: "text/html;profile=mcp-app",
-        uri: agentRunsMcpAppResourceUri
+        uri: agentRunsMcpAppResourceUri,
       },
       serverId: defaultMcpToolboxServerId,
       title: "Agent Runs MCP App",
       toolData: data,
-      toolName: "list-agent-runs"
-    } satisfies AgentMcpAppUi
+      toolName: "list-agent-runs",
+    } satisfies AgentMcpAppUi,
   };
 }
 
 function readMcpHostConfigFile(input: Record<string, unknown>) {
-  const configPath = findMcpHostConfigPath(process.env.INIT_CWD ?? process.cwd());
+  const configPath = findMcpHostConfigPath(
+    process.env.INIT_CWD ?? process.cwd(),
+  );
   if (!configPath) {
     return {};
   }
 
   const parsed = JSON.parse(readFileSync(configPath, "utf8")) as unknown;
   if (!isRecord(parsed)) {
-    throw new Error(`${defaultMcpHostConfigFileName} must contain a JSON object`);
+    throw new Error(
+      `${defaultMcpHostConfigFileName} must contain a JSON object`,
+    );
   }
 
   return {
     servers: readFileServerConfigMap(parsed.servers, input),
-    toolboxToolset: typeof parsed.toolboxToolset === "string" ? expandEnv(parsed.toolboxToolset, input) : undefined,
-    toolboxUrl: typeof parsed.toolboxUrl === "string" ? expandEnv(parsed.toolboxUrl, input) : undefined
+    toolboxToolset:
+      typeof parsed.toolboxToolset === "string"
+        ? expandEnv(parsed.toolboxToolset, input)
+        : undefined,
+    toolboxUrl:
+      typeof parsed.toolboxUrl === "string"
+        ? expandEnv(parsed.toolboxUrl, input)
+        : undefined,
   };
 }
 
 function readServerConfigMap(input: unknown) {
-  const servers: Record<string, { url: string; toolset: string }> = {};
+  const servers: Record<string, McpHostServerConfigInput> = {};
   if (!isRecord(input)) {
     return servers;
   }
@@ -255,7 +352,10 @@ function readServerConfigMap(input: unknown) {
 
     servers[id] = {
       toolset: readString(value.toolset) ?? defaultMcpToolboxToolset,
-      url
+      url,
+      ...(value.allowedTools === undefined
+        ? {}
+        : { allowedTools: value.allowedTools }),
     };
   }
 
@@ -263,7 +363,7 @@ function readServerConfigMap(input: unknown) {
 }
 
 function readFileServerConfigMap(input: unknown, env: Record<string, unknown>) {
-  const servers: Record<string, { url: string; toolset: string }> = {};
+  const servers: Record<string, McpHostServerConfigInput> = {};
   if (!isRecord(input)) {
     return servers;
   }
@@ -274,8 +374,14 @@ function readFileServerConfigMap(input: unknown, env: Record<string, unknown>) {
     }
 
     servers[id] = {
-      toolset: typeof value.toolset === "string" ? expandEnv(value.toolset, env) : defaultMcpToolboxToolset,
-      url: expandEnv(value.url, env)
+      toolset:
+        typeof value.toolset === "string"
+          ? expandEnv(value.toolset, env)
+          : defaultMcpToolboxToolset,
+      url: expandEnv(value.url, env),
+      ...(value.allowedTools === undefined
+        ? {}
+        : { allowedTools: value.allowedTools }),
     };
   }
 
@@ -301,10 +407,15 @@ function findMcpHostConfigPath(start: string) {
 }
 
 function expandEnv(value: string, input: Record<string, unknown>) {
-  return value.replace(/\$\{([A-Z0-9_]+)(?::-(.*?))?\}/g, (_match, name: string, fallback = "") => {
-    const envValue = input[name];
-    return typeof envValue === "string" && envValue.length > 0 ? envValue : fallback;
-  });
+  return value.replace(
+    /\$\{([A-Z0-9_]+)(?::-(.*?))?\}/g,
+    (_match, name: string, fallback = "") => {
+      const envValue = input[name];
+      return typeof envValue === "string" && envValue.length > 0
+        ? envValue
+        : fallback;
+    },
+  );
 }
 
 function shouldRenderAgentRunsDashboard(prompt: string) {
@@ -456,15 +567,19 @@ function readString(value: unknown) {
 export type McpHost = ReturnType<typeof createMcpHost>;
 
 async function createMcpClient(server: McpHostServer): Promise<McpClientLike> {
-  const client = new Client({ name: "agent-template-mcp-host", version: "0.1.0" });
+  const client = new Client({
+    name: "agent-template-mcp-host",
+    version: "0.1.0",
+  });
   const transport = new StreamableHTTPClientTransport(new URL(server.url));
 
   await client.connect(transport as Parameters<Client["connect"]>[0]);
 
   return {
     listTools: () => client.listTools(),
-    callTool: async (input) => normalizeMcpToolCallResult(await client.callTool(input)),
-    close: () => transport.close()
+    callTool: async (input) =>
+      normalizeMcpToolCallResult(await client.callTool(input)),
+    close: () => transport.close(),
   };
 }
 
@@ -472,8 +587,12 @@ function normalizeMcpToolCallResult(result: unknown): McpHostToolCallResult {
   if (isRecord(result) && Array.isArray(result.content)) {
     return {
       content: result.content,
-      ...(isRecord(result.structuredContent) ? { structuredContent: result.structuredContent } : {}),
-      ...(typeof result.isError === "boolean" ? { isError: result.isError } : {})
+      ...(isRecord(result.structuredContent)
+        ? { structuredContent: result.structuredContent }
+        : {}),
+      ...(typeof result.isError === "boolean"
+        ? { isError: result.isError }
+        : {}),
     };
   }
 
@@ -481,14 +600,16 @@ function normalizeMcpToolCallResult(result: unknown): McpHostToolCallResult {
     content: [
       {
         text: JSON.stringify(result),
-        type: "text"
-      }
-    ]
+        type: "text",
+      },
+    ],
   };
 }
 
 function readAgentRunRows(result: McpHostToolCallResult): AgentRunSummary[] {
-  const rows = Array.isArray(result.structuredContent?.result) ? result.structuredContent.result : readJsonTextContent(result.content);
+  const rows = Array.isArray(result.structuredContent?.result)
+    ? result.structuredContent.result
+    : readJsonTextContent(result.content);
 
   return rows.flatMap((row) => {
     if (!isRecord(row)) {
@@ -499,9 +620,14 @@ function readAgentRunRows(result: McpHostToolCallResult): AgentRunSummary[] {
     const eventCount = Number(row.eventCount ?? 0);
     const firstEventAt = String(row.firstEventAt ?? "");
     const lastEventAt = String(row.lastEventAt ?? "");
-    const terminalEvent = row.terminalEvent === null || row.terminalEvent === undefined ? null : String(row.terminalEvent);
+    const terminalEvent =
+      row.terminalEvent === null || row.terminalEvent === undefined
+        ? null
+        : String(row.terminalEvent);
 
-    return runId ? [{ runId, eventCount, firstEventAt, lastEventAt, terminalEvent }] : [];
+    return runId
+      ? [{ runId, eventCount, firstEventAt, lastEventAt, terminalEvent }]
+      : [];
   });
 }
 
@@ -509,7 +635,11 @@ function readJsonTextContent(content: unknown[]) {
   const rows: unknown[] = [];
 
   for (const part of content) {
-    if (!isRecord(part) || part.type !== "text" || typeof part.text !== "string") {
+    if (
+      !isRecord(part) ||
+      part.type !== "text" ||
+      typeof part.text !== "string"
+    ) {
       continue;
     }
 

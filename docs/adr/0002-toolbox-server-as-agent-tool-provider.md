@@ -27,7 +27,7 @@ The default `tools.yaml` exposes only read-only `TemplateEvent` tools under `age
 
 - Cloud and Eve runtimes stay independent.
 - Database tool permissions are visible in one audited `tools.yaml` file.
-- New database tools require an explicit tool and toolset entry.
+- New database tools require an explicit tool and toolset entry, plus a matching MCP Host `allowedTools` entry so MCP `tools/list` cannot reveal a broader server surface.
 - Host-managed MCP is now the production integration path: `@agent-template/mcp-host` owns MCP client lifecycle, and both Claude and Eve expose runtime-specific tool surfaces that delegate to that Host.
 - Runtime-owned Toolbox connections such as project `.mcp.json` or `packages/agent-eve/agent/connections/toolbox.ts` are historical context, not the current implementation direction.
 

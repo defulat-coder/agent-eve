@@ -2,23 +2,28 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createMcpHost, defaultMcpHostConfigFileName, loadMcpHostConfig, parseMcpHostConfig } from "./index.js";
+import {
+  createMcpHost,
+  defaultMcpHostConfigFileName,
+  loadMcpHostConfig,
+  parseMcpHostConfig,
+} from "./index.js";
 
 describe("MCP Host", () => {
   it("registers the Toolbox MCP server from static env config", () => {
     const host = createMcpHost(
       parseMcpHostConfig({
         TOOLBOX_URL: "http://toolbox:15000",
-        TOOLBOX_TOOLSET: "agent_template_read_model"
-      })
+        TOOLBOX_TOOLSET: "agent_template_read_model",
+      }),
     );
 
     expect(host.getServers()).toEqual([
       {
         id: "toolbox",
         toolset: "agent_template_read_model",
-        url: "http://toolbox:15000/mcp"
-      }
+        url: "http://toolbox:15000/mcp",
+      },
     ]);
   });
 
@@ -28,27 +33,27 @@ describe("MCP Host", () => {
         servers: {
           analytics: {
             toolset: "analytics_read_model",
-            url: "http://analytics:15000"
+            url: "http://analytics:15000",
           },
           toolbox: {
             toolset: "agent_template_read_model",
-            url: "http://toolbox:15000"
-          }
-        }
-      })
+            url: "http://toolbox:15000",
+          },
+        },
+      }),
     );
 
     expect(host.getServers()).toEqual([
       {
         id: "analytics",
         toolset: "analytics_read_model",
-        url: "http://analytics:15000/mcp"
+        url: "http://analytics:15000/mcp",
       },
       {
         id: "toolbox",
         toolset: "agent_template_read_model",
-        url: "http://toolbox:15000/mcp"
-      }
+        url: "http://toolbox:15000/mcp",
+      },
     ]);
   });
 
@@ -62,11 +67,11 @@ describe("MCP Host", () => {
         servers: {
           toolbox: {
             toolset: "${TOOLBOX_TOOLSET:-file_toolset}",
-            url: "http://file-toolbox:15000"
-          }
-        }
+            url: "http://file-toolbox:15000",
+          },
+        },
       }),
-      "utf8"
+      "utf8",
     );
 
     try {
@@ -74,15 +79,15 @@ describe("MCP Host", () => {
         createMcpHost(
           loadMcpHostConfig({
             TOOLBOX_TOOLSET: "env_toolset",
-            TOOLBOX_URL: "http://env-toolbox:15000"
-          })
-        ).getServers()
+            TOOLBOX_URL: "http://env-toolbox:15000",
+          }),
+        ).getServers(),
       ).toEqual([
         {
           id: "toolbox",
           toolset: "env_toolset",
-          url: "http://file-toolbox:15000/mcp"
-        }
+          url: "http://file-toolbox:15000/mcp",
+        },
       ]);
     } finally {
       if (previousInitCwd === undefined) {
@@ -95,74 +100,131 @@ describe("MCP Host", () => {
   });
 
   it("lists tools through a Host-managed MCP client", async () => {
-    const host = createMcpHost(parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }), {
-      createClient: async () => ({
-        async listTools() {
-          return {
-            tools: [
-              {
-                description: "List recent Agent runs",
-                inputSchema: { type: "object" },
-                name: "list-agent-runs"
-              }
-            ]
-          };
-        },
-        async callTool() {
-          throw new Error("not used");
-        }
-      })
-    });
+    const host = createMcpHost(
+      parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }),
+      {
+        createClient: async () => ({
+          async listTools() {
+            return {
+              tools: [
+                {
+                  description: "List recent Agent runs",
+                  inputSchema: { type: "object" },
+                  name: "list-agent-runs",
+                },
+              ],
+            };
+          },
+          async callTool() {
+            throw new Error("not used");
+          },
+        }),
+      },
+    );
 
     await expect(host.listTools()).resolves.toEqual([
       {
         description: "List recent Agent runs",
         inputSchema: { type: "object" },
-        name: "list-agent-runs"
-      }
+        name: "list-agent-runs",
+      },
     ]);
   });
 
-  it("builds Agent run dashboard data from a Host-managed Toolbox call", async () => {
-    const host = createMcpHost(parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }), {
-      createClient: async () => ({
-        async listTools() {
-          return { tools: [] };
+  it("enforces a configured allowlist for tools/list and tools/call", async () => {
+    let calledTool: string | undefined;
+    const host = createMcpHost(
+      parseMcpHostConfig({
+        servers: {
+          toolbox: {
+            allowedTools: ["list-agent-runs"],
+            toolset: "agent_template_read_model",
+            url: "http://toolbox:15000",
+          },
         },
-        async callTool(input) {
-          expect(input).toEqual({ name: "list-agent-runs", arguments: { limit: 3 } });
-
-          return {
-            content: [],
-            structuredContent: {
-              result: [
+      }),
+      {
+        createClient: async () => ({
+          async listTools() {
+            return {
+              tools: [
+                { inputSchema: { type: "object" }, name: "list-agent-runs" },
                 {
-                  eventCount: 4,
-                  firstEventAt: "2026-07-04T11:30:00.000Z",
-                  lastEventAt: "2026-07-04T11:30:22.000Z",
-                  runId: "run_knowledge_001",
-                  terminalEvent: "agent.run.completed"
+                  inputSchema: { type: "object" },
+                  name: "postgres-execute-sql",
                 },
-                {
-                  eventCount: 3,
-                  firstEventAt: "2026-07-04T10:15:00.000Z",
-                  lastEventAt: "2026-07-04T10:15:11.000Z",
-                  runId: "run_invoice_001",
-                  terminalEvent: "agent.run.failed"
-                }
-              ]
-            }
-          };
-        }
-      })
+              ],
+            };
+          },
+          async callTool(input) {
+            calledTool = input.name;
+            return { content: [] };
+          },
+        }),
+      },
+    );
+
+    await expect(host.listTools()).resolves.toEqual([
+      { inputSchema: { type: "object" }, name: "list-agent-runs" },
+    ]);
+    await expect(
+      host.callTool("toolbox", "postgres-execute-sql"),
+    ).rejects.toThrow(
+      "MCP tool postgres-execute-sql is not allowed for server toolbox",
+    );
+    expect(calledTool).toBeUndefined();
+    await expect(host.callTool("toolbox", "list-agent-runs")).resolves.toEqual({
+      content: [],
     });
+    expect(calledTool).toBe("list-agent-runs");
+  });
+
+  it("builds Agent run dashboard data from a Host-managed Toolbox call", async () => {
+    const host = createMcpHost(
+      parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }),
+      {
+        createClient: async () => ({
+          async listTools() {
+            return { tools: [] };
+          },
+          async callTool(input) {
+            expect(input).toEqual({
+              name: "list-agent-runs",
+              arguments: { limit: 3 },
+            });
+
+            return {
+              content: [],
+              structuredContent: {
+                result: [
+                  {
+                    eventCount: 4,
+                    firstEventAt: "2026-07-04T11:30:00.000Z",
+                    lastEventAt: "2026-07-04T11:30:22.000Z",
+                    runId: "run_knowledge_001",
+                    terminalEvent: "agent.run.completed",
+                  },
+                  {
+                    eventCount: 3,
+                    firstEventAt: "2026-07-04T10:15:00.000Z",
+                    lastEventAt: "2026-07-04T10:15:11.000Z",
+                    runId: "run_invoice_001",
+                    terminalEvent: "agent.run.failed",
+                  },
+                ],
+              },
+            };
+          },
+        }),
+      },
+    );
 
     await expect(host.createAgentRunsDashboard(3)).resolves.toEqual({
       metrics: {
         completedRuns: 1,
         failedRuns: 1,
         failureRate: 0.5,
-        totalRuns: 2
+        totalRuns: 2,
       },
       runs: [
         {
@@ -170,56 +232,60 @@ describe("MCP Host", () => {
           firstEventAt: "2026-07-04T11:30:00.000Z",
           lastEventAt: "2026-07-04T11:30:22.000Z",
           runId: "run_knowledge_001",
-          terminalEvent: "agent.run.completed"
+          terminalEvent: "agent.run.completed",
         },
         {
           eventCount: 3,
           firstEventAt: "2026-07-04T10:15:00.000Z",
           lastEventAt: "2026-07-04T10:15:11.000Z",
           runId: "run_invoice_001",
-          terminalEvent: "agent.run.failed"
-        }
-      ]
+          terminalEvent: "agent.run.failed",
+        },
+      ],
     });
   });
 
   it("builds MCP App UI events inside the Host boundary", async () => {
-    const host = createMcpHost(parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }), {
-      createClient: async () => ({
-        async listTools() {
-          return { tools: [] };
-        },
-        async callTool() {
-          return {
-            content: [],
-            structuredContent: {
-              result: [
-                {
-                  eventCount: 4,
-                  firstEventAt: "2026-07-04T11:30:00.000Z",
-                  lastEventAt: "2026-07-04T11:30:22.000Z",
-                  runId: "run_knowledge_001",
-                  terminalEvent: "agent.run.completed"
-                }
-              ]
-            }
-          };
-        }
-      })
-    });
+    const host = createMcpHost(
+      parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }),
+      {
+        createClient: async () => ({
+          async listTools() {
+            return { tools: [] };
+          },
+          async callTool() {
+            return {
+              content: [],
+              structuredContent: {
+                result: [
+                  {
+                    eventCount: 4,
+                    firstEventAt: "2026-07-04T11:30:00.000Z",
+                    lastEventAt: "2026-07-04T11:30:22.000Z",
+                    runId: "run_knowledge_001",
+                    terminalEvent: "agent.run.completed",
+                  },
+                ],
+              },
+            };
+          },
+        }),
+      },
+    );
 
-    const events = await host.createAgentRunsDashboardEvents("给我做 Agent 运行统计分析");
+    const events =
+      await host.createAgentRunsDashboardEvents("给我做 Agent 运行统计分析");
 
     expect(events.slice(0, 2)).toEqual([
       {
-        input: "{\"limit\":20}",
+        input: '{"limit":20}',
         kind: "tool-call",
-        tool: "mcp-host/toolbox/list-agent-runs"
+        tool: "mcp-host/toolbox/list-agent-runs",
       },
       {
         kind: "tool-result",
-        tool: "mcp-host/toolbox/list-agent-runs"
-      }
+        tool: "mcp-host/toolbox/list-agent-runs",
+      },
     ]);
     expect(events.slice(2)).toEqual([
       {
@@ -228,42 +294,49 @@ describe("MCP Host", () => {
           component: "mcp-app",
           resource: {
             mimeType: "text/html;profile=mcp-app",
-            uri: "ui://agent-template/agent-runs"
+            uri: "ui://agent-template/agent-runs",
           },
           serverId: "toolbox",
-          toolName: "list-agent-runs"
-        })
-      }
+          toolName: "list-agent-runs",
+        }),
+      },
     ]);
-    await expect(host.createAgentRunsDashboardEvents("hello")).resolves.toEqual([]);
+    await expect(host.createAgentRunsDashboardEvents("hello")).resolves.toEqual(
+      [],
+    );
   });
 
   it("builds an MCP App event and HTML resource for interactive prompts", async () => {
-    const host = createMcpHost(parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }), {
-      createClient: async () => ({
-        async listTools() {
-          return { tools: [] };
-        },
-        async callTool() {
-          return {
-            content: [],
-            structuredContent: {
-              result: [
-                {
-                  eventCount: 4,
-                  firstEventAt: "2026-07-04T11:30:00.000Z",
-                  lastEventAt: "2026-07-04T11:30:22.000Z",
-                  runId: "run_knowledge_001",
-                  terminalEvent: "agent.run.completed"
-                }
-              ]
-            }
-          };
-        }
-      })
-    });
+    const host = createMcpHost(
+      parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }),
+      {
+        createClient: async () => ({
+          async listTools() {
+            return { tools: [] };
+          },
+          async callTool() {
+            return {
+              content: [],
+              structuredContent: {
+                result: [
+                  {
+                    eventCount: 4,
+                    firstEventAt: "2026-07-04T11:30:00.000Z",
+                    lastEventAt: "2026-07-04T11:30:22.000Z",
+                    runId: "run_knowledge_001",
+                    terminalEvent: "agent.run.completed",
+                  },
+                ],
+              },
+            };
+          },
+        }),
+      },
+    );
 
-    const events = await host.createAgentRunsDashboardEvents("用 MCP App 协议给我一个可交互统计");
+    const events = await host.createAgentRunsDashboardEvents(
+      "用 MCP App 协议给我一个可交互统计",
+    );
 
     expect(events).toContainEqual({
       kind: "ui",
@@ -271,64 +344,68 @@ describe("MCP Host", () => {
         component: "mcp-app",
         resource: {
           mimeType: "text/html;profile=mcp-app",
-          uri: "ui://agent-template/agent-runs"
+          uri: "ui://agent-template/agent-runs",
         },
         serverId: "toolbox",
-        toolName: "list-agent-runs"
-      })
+        toolName: "list-agent-runs",
+      }),
     });
-    expect(host.getAppResource("ui://agent-template/agent-runs")).toMatchObject({
-      mimeType: "text/html;profile=mcp-app",
-      uri: "ui://agent-template/agent-runs"
-    });
-    expect(host.getAppResource("ui://agent-template/agent-runs").html).toContain("tools/call");
+    expect(host.getAppResource("ui://agent-template/agent-runs")).toMatchObject(
+      {
+        mimeType: "text/html;profile=mcp-app",
+        uri: "ui://agent-template/agent-runs",
+      },
+    );
+    expect(
+      host.getAppResource("ui://agent-template/agent-runs").html,
+    ).toContain("tools/call");
   });
 
   it("builds Agent run dashboard data from Toolbox text rows", async () => {
-    const host = createMcpHost(parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }), {
-      createClient: async () => ({
-        async listTools() {
-          return { tools: [] };
-        },
-        async callTool() {
-          return {
-            content: [
-              {
-                text: JSON.stringify({
-                  eventCount: 4,
-                  firstEventAt: "2026-07-04T11:30:00Z",
-                  lastEventAt: "2026-07-04T11:30:22Z",
-                  runId: "run_knowledge_001",
-                  terminalEvent: "agent.run.completed"
-                }),
-                type: "text"
-              },
-              {
-                text: JSON.stringify({
-                  eventCount: 3,
-                  firstEventAt: "2026-07-04T10:15:00Z",
-                  lastEventAt: "2026-07-04T10:15:11Z",
-                  runId: "run_invoice_001",
-                  terminalEvent: "agent.run.failed"
-                }),
-                type: "text"
-              }
-            ]
-          };
-        }
-      })
-    });
+    const host = createMcpHost(
+      parseMcpHostConfig({ TOOLBOX_URL: "http://toolbox:15000" }),
+      {
+        createClient: async () => ({
+          async listTools() {
+            return { tools: [] };
+          },
+          async callTool() {
+            return {
+              content: [
+                {
+                  text: JSON.stringify({
+                    eventCount: 4,
+                    firstEventAt: "2026-07-04T11:30:00Z",
+                    lastEventAt: "2026-07-04T11:30:22Z",
+                    runId: "run_knowledge_001",
+                    terminalEvent: "agent.run.completed",
+                  }),
+                  type: "text",
+                },
+                {
+                  text: JSON.stringify({
+                    eventCount: 3,
+                    firstEventAt: "2026-07-04T10:15:00Z",
+                    lastEventAt: "2026-07-04T10:15:11Z",
+                    runId: "run_invoice_001",
+                    terminalEvent: "agent.run.failed",
+                  }),
+                  type: "text",
+                },
+              ],
+            };
+          },
+        }),
+      },
+    );
 
     await expect(host.createAgentRunsDashboard()).resolves.toMatchObject({
       metrics: {
         completedRuns: 1,
         failedRuns: 1,
-        totalRuns: 2
+        totalRuns: 2,
       },
-      runs: [
-        { runId: "run_knowledge_001" },
-        { runId: "run_invoice_001" }
-      ]
+      runs: [{ runId: "run_knowledge_001" }, { runId: "run_invoice_001" }],
     });
   });
 });

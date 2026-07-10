@@ -2,7 +2,18 @@
   "servers": {
     "toolbox": {
       "url": "${TOOLBOX_URL:-http://localhost:15000}",
-      "toolset": "${TOOLBOX_TOOLSET:-agent_template_read_model}"
+      "toolset": "${TOOLBOX_TOOLSET:-agent_template_read_model}",
+      "allowedTools": [
+        "list-template-events",
+        "get-template-event",
+        "list-template-events-in-window",
+        "summarize-template-events-by-type",
+        "list-agent-runs",
+        "get-agent-run-summary",
+        "list-agent-run-timeline",
+        "list-failed-agent-runs-in-window",
+        "summarize-tool-invocations"
+      ]
     }
   }
 }
