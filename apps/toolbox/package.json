@@ -1,0 +1,16 @@
+{
+  "name": "@agent-template/toolbox",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/generate-toolbox-business-skills.ts --format esm",
+    "lint": "eslint src",
+    "skills:generate": "tsx src/generate-toolbox-business-skills.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@toolbox-sdk/server": "^1.6.0",
+    "vitest": "^4.1.9"
+  }
+}
