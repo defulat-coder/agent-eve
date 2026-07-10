@@ -8,3 +8,6 @@ allowBuilds:
   msgpackr-extract: true
   prisma: true
   sharp: true
+
+minimumReleaseAgeExclude:
+  - eve@0.22.4
