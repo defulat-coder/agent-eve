@@ -94,6 +94,39 @@ describe("POST /agent/chat", () => {
     );
     expect(response.body).toContain('event: result\ndata: {"configured":true');
   });
+
+  it("passes an opaque Agent continuation through the Chat boundary", async () => {
+    const inputs: unknown[] = [];
+    const continuation = { token: "opaque-token" };
+    const app = buildApp({
+      env: loadEnv({ NODE_ENV: "test", AGENT_RUNTIME: "eve" }),
+      async runAgent(input) {
+        inputs.push(input);
+        return {
+          configured: true,
+          events: [{ kind: "waiting" }],
+          model: "kimi-for-coding",
+          output: "可以继续。",
+          promptLength: 2,
+          runtime: "eve",
+          continuation,
+          sessionId: "session-1",
+          status: "waiting",
+        };
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/agent/chat",
+      payload: { prompt: "继续", continuation },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(inputs).toEqual([{ prompt: "继续", continuation }]);
+    expect(response.body).toContain('"status":"waiting"');
+    expect(response.body).toContain('"token":"opaque-token"');
+  });
 });
 
 describe("removed platform MCP surface", () => {

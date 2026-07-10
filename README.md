@@ -90,7 +90,10 @@ ANTHROPIC_MODEL=kimi-for-coding
 CLAUDE_AGENT_MODEL=kimi-for-coding
 EVE_AGENT_MODEL=kimi-for-coding
 EVE_AGENT_HOST=http://localhost:13010
+EVE_AGENT_SERVICE_TOKEN=
 CLAUDE_CODE_AUTO_COMPACT_WINDOW=262144
 ```
 
 `AGENT_RUNTIME=claude|eve` 只通过环境变量选择。未配置 API Key 时，API 仍可启动，`/health` 会显示当前 runtime 配置状态。
+
+Eve 使用 runtime-neutral opaque continuation 支持多轮续接和结构化 HITL，并把连接授权、subagent、compaction 和 token usage 转换为统一运行事件。非 loopback 的 `EVE_AGENT_HOST`（包括 Docker Compose 中的 `http://eve-agent:13010`）必须为 API/Worker 和 Eve Agent 配置同一个高熵 `EVE_AGENT_SERVICE_TOKEN`；production 不启用 `localDev()` Host fallback，缺少凭证时会 fail closed。完整安全面、预算和 eval 说明见 [packages/agent-eve/README.md](packages/agent-eve/README.md)。

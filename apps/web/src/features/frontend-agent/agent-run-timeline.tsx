@@ -1,9 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import type { AgentArtifact, AgentRunEvent } from "@agent-template/shared";
+import type {
+  AgentArtifact,
+  AgentInputResponse,
+  AgentRunEvent,
+} from "@agent-template/shared";
 
-export function AgentRunTimeline({ events }: { events: AgentRunEvent[] }) {
+export function AgentRunTimeline({
+  disabled,
+  events,
+  onInputResponse,
+}: {
+  disabled?: boolean;
+  events: AgentRunEvent[];
+  onInputResponse?: (response: AgentInputResponse) => void | Promise<void>;
+}) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
       <div className="flex flex-col gap-1">
@@ -16,7 +28,12 @@ export function AgentRunTimeline({ events }: { events: AgentRunEvent[] }) {
       {events.length ? (
         <div className="mt-4 flex flex-col gap-3">
           {events.map((event, index) => (
-            <AgentRunEventRow event={event} key={`${event.kind}-${index}`} />
+            <AgentRunEventRow
+              disabled={disabled}
+              event={event}
+              key={`${event.kind}-${index}`}
+              onInputResponse={onInputResponse}
+            />
           ))}
         </div>
       ) : (
@@ -28,7 +45,15 @@ export function AgentRunTimeline({ events }: { events: AgentRunEvent[] }) {
   );
 }
 
-function AgentRunEventRow({ event }: { event: AgentRunEvent }) {
+function AgentRunEventRow({
+  disabled,
+  event,
+  onInputResponse,
+}: {
+  disabled?: boolean;
+  event: AgentRunEvent;
+  onInputResponse?: (response: AgentInputResponse) => void | Promise<void>;
+}) {
   if (event.kind === "tool-call") {
     return (
       <LogRow label={`Tool call: ${event.tool}`} tone="blue">
@@ -38,7 +63,14 @@ function AgentRunEventRow({ event }: { event: AgentRunEvent }) {
   }
 
   if (event.kind === "tool-result") {
-    return <LogRow label={`Tool result: ${event.tool}`} tone="green" />;
+    return (
+      <LogRow
+        label={`Tool result: ${event.tool}${event.status ? ` (${event.status})` : ""}`}
+        tone={event.status === "failed" ? "red" : "green"}
+      >
+        {event.error}
+      </LogRow>
+    );
   }
 
   if (event.kind === "text") {
@@ -59,6 +91,101 @@ function AgentRunEventRow({ event }: { event: AgentRunEvent }) {
         {event.message}
       </LogRow>
     );
+  }
+
+  if (event.kind === "input-requested") {
+    return (
+      <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-950">
+        <div className="font-medium">等待人工输入</div>
+        <div className="mt-3 flex flex-col gap-3">
+          {event.requests.map((request) => (
+            <div className="flex flex-col gap-2" key={request.requestId}>
+              <p>{request.prompt}</p>
+              {request.options?.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {request.options.map((option) => (
+                    <button
+                      className={
+                        option.style === "danger"
+                          ? "rounded-md bg-red-700 px-3 py-1.5 text-white disabled:opacity-50"
+                          : "rounded-md bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50"
+                      }
+                      disabled={disabled || !onInputResponse}
+                      key={option.id}
+                      onClick={() =>
+                        void onInputResponse?.({
+                          requestId: request.requestId,
+                          optionId: option.id,
+                        })
+                      }
+                      title={option.description}
+                      type="button"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-blue-700">请在上方输入框中回复。</p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (event.kind === "authorization") {
+    return (
+      <LogRow
+        label={`连接授权: ${event.connection} (${event.status})`}
+        tone="blue"
+      >
+        {[event.description, event.instructions, event.url]
+          .filter(Boolean)
+          .join("\n")}
+      </LogRow>
+    );
+  }
+
+  if (event.kind === "subagent") {
+    return (
+      <LogRow label={`Subagent: ${event.name} (${event.status})`} tone="blue">
+        {event.sessionId}
+      </LogRow>
+    );
+  }
+
+  if (event.kind === "compaction") {
+    return (
+      <LogRow label={`上下文压缩: ${event.status}`}>
+        {event.inputTokens === undefined
+          ? undefined
+          : `触发时输入 token: ${event.inputTokens}`}
+      </LogRow>
+    );
+  }
+
+  if (event.kind === "usage") {
+    return (
+      <LogRow label="模型用量">
+        {[
+          event.inputTokens === undefined
+            ? undefined
+            : `输入: ${event.inputTokens}`,
+          event.outputTokens === undefined
+            ? undefined
+            : `输出: ${event.outputTokens}`,
+          event.costUsd === undefined ? undefined : `成本: $${event.costUsd}`,
+        ]
+          .filter(Boolean)
+          .join(" / ")}
+      </LogRow>
+    );
+  }
+
+  if (event.kind === "waiting") {
+    return <LogRow label="Eve 会话等待下一条消息" tone="blue" />;
   }
 
   if (event.kind === "artifacts") {

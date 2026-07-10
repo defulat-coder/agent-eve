@@ -51,4 +51,39 @@ describe("AgentRunEventSchema", () => {
       AgentRunEventSchema.parse({ kind: "unknown", text: "raw event" }),
     ).toEqual({ kind: "unknown", text: "raw event" });
   });
+
+  it("accepts Eve interactive and lifecycle events", () => {
+    expect(
+      AgentRunEventSchema.parse({
+        kind: "input-requested",
+        requests: [
+          {
+            requestId: "request-1",
+            prompt: "是否批准？",
+            tool: "toolbox__list-agent-runs",
+            display: "confirmation",
+            options: [
+              { id: "approve", label: "批准", style: "primary" },
+              { id: "deny", label: "拒绝", style: "danger" },
+            ],
+          },
+        ],
+      }),
+    ).toMatchObject({ kind: "input-requested" });
+    expect(
+      AgentRunEventSchema.parse({
+        kind: "authorization",
+        connection: "toolbox",
+        status: "required",
+        url: "https://example.com/authorize",
+      }),
+    ).toMatchObject({ kind: "authorization", status: "required" });
+    expect(
+      AgentRunEventSchema.parse({
+        kind: "usage",
+        inputTokens: 120,
+        outputTokens: 24,
+      }),
+    ).toEqual({ kind: "usage", inputTokens: 120, outputTokens: 24 });
+  });
 });

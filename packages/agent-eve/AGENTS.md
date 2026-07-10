@@ -10,7 +10,7 @@
 - `agent/agent.ts` 使用 `eve` 导出的 `defineAgent` 放 runtime config。
 - `EVE_AGENT_MODEL` 由 `src/config.ts` 统一读取，runtime state 和 `agent/agent.ts` 必须同源。
 - `EVE_AGENT_HOST` 是 Eve execution adapter 连接官方 Eve HTTP API 的运行配置；未配置时 execution 返回 skipped。
-- `EVE_AGENT_SERVICE_TOKEN` 是 API/Worker 到 Eve HTTP channel 的可选服务凭证；配置后 client 发送 `x-agent-template-eve-token`，Eve channel 校验该 header。
+- `EVE_AGENT_SERVICE_TOKEN` 是 API/Worker 到 Eve HTTP channel 的服务凭证；仅 loopback 本地开发可省略，任何非 loopback `EVE_AGENT_HOST` 必须配置，client 使用禁止重定向的请求发送 `x-agent-template-eve-token`，Eve channel 以恒定时间摘要比较校验。
 - Docker Compose 提供 `eve-agent` 服务，默认监听 `13010`，API/Worker 通过 `EVE_AGENT_HOST` 连接它。
 - Kimi Code 通过 `@ai-sdk/anthropic` 的 Anthropic-compatible provider 接入 Eve authored surface。
 - Eve 默认使用 `ANTHROPIC_BASE_URL=https://api.kimi.com/coding/`、`ANTHROPIC_MODEL=kimi-for-coding`、`ANTHROPIC_API_KEY`。
@@ -18,6 +18,11 @@
 - `agent/instructions.md` 放基础 system prompt。
 - `agent/channels/eve.ts` 放 Eve HTTP route auth；不要删除 API service auth，否则 `@agent-template/agent-eve` client 会被 Eve session route 拒绝。
 - `agent/tools/web_search.ts` 禁用 Eve provider-managed `web_search`；Kimi Anthropic-compatible stream 会返回缺少 `id` 的 server tool block，启用后会触发 Eve/AI SDK 类型校验失败。
+- 生产 surface 默认关闭 `bash`、`read_file`、`write_file`、`glob`、`grep`、`web_fetch` 和 `web_search`；需要恢复时必须先定义最小权限、审批和 sandbox egress 策略。Eve 0.22.4 不支持通过 `disableTool()` 关闭内建 `agent`，因此使用一层 subagent depth 和 session token budget 收口。
+- 当前 sandbox 显式固定 `just-bash({ autoInstall: false })`，避免 Eve `defaultBackend()` 在本地或自托管环境隐式启动 Docker；如恢复 shell/文件能力，必须重新评估并切换为具有明确 egress policy 的强隔离 backend。
+- Eve `SessionState` 只存在于 runtime adapter 内部，通过 shared opaque `continuation.token` 往返；`session.waiting` 必须映射为 `waiting`，不能误报为 completed 或丢弃 continuation。HITL option 必须通过 shared `responses` 转换为 Eve `InputResponse`，不要要求用户依赖文本 heuristic。
+- production Eve channel 不注册 `localDev()`，避免伪造 Host 绕过 service token；仅 development/test 可使用 local fallback。
+- instrumentation 不记录模型输入输出正文；hook 日志只记录 session lifecycle、channel、错误码和授权结果，不记录 prompt、tool input/output 或凭证。
 - `agent/tools`、`agent/skills`、`agent/channels`、`agent/hooks`、`agent/sandbox`、`agent/subagents` 按 Eve 语义增长。
 - 电商业务 Skill 以 Toolbox 官方 `skills-generate` 产物为来源，通过 `pnpm --filter @agent-template/toolbox skills:generate` 同步到 Eve 与 Claude authored surface。
 - 运行时 Skill 只安装适配后的 `SKILL.md`，并调用 `toolbox__<tool>` connection tools；不要把官方生成的数据库直连脚本复制进 Agent skill 目录。
@@ -52,4 +57,5 @@ pnpm --filter @agent-template/agent-eve test
 pnpm --filter @agent-template/agent-eve typecheck
 pnpm --filter @agent-template/agent-eve build
 pnpm --filter @agent-template/agent-eve eve:info
+pnpm --filter @agent-template/agent-eve eve:eval:list
 ```

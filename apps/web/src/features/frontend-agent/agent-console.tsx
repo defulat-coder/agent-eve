@@ -2,7 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import { Button } from "@agent-template/ui";
-import type { AgentRunEvent, AgentRunResult } from "@agent-template/shared";
+import type {
+  AgentContinuation,
+  AgentInputResponse,
+  AgentRunEvent,
+  AgentRunResult,
+} from "@agent-template/shared";
 import { streamAgentChat } from "@/lib/agent-client";
 import { AgentMarkdown } from "./agent-markdown";
 import { AgentRunTimeline } from "./agent-run-timeline";
@@ -11,6 +16,7 @@ type AgentConsoleStatus =
   | "idle"
   | "submitting"
   | "running"
+  | "waiting"
   | "completed"
   | "skipped"
   | "failed";
@@ -22,15 +28,14 @@ export function AgentConsole() {
   const [streamedOutput, setStreamedOutput] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState<AgentConsoleStatus>("idle");
+  const [continuation, setContinuation] = useState<AgentContinuation | null>(
+    null,
+  );
   const submitting = status === "submitting" || status === "running";
   const messageParts = buildAgentMessageParts(events);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
-    setEvents([]);
-    setResult(null);
-    setStreamedOutput("");
 
     if (!prompt.trim()) {
       setError("请输入 Agent 请求。");
@@ -38,23 +43,37 @@ export function AgentConsole() {
       return;
     }
 
+    await executeAgentTurn({ prompt });
+  }
+
+  async function executeAgentTurn(input: {
+    prompt?: string;
+    responses?: AgentInputResponse[];
+  }) {
+    setError("");
+    setEvents([]);
+    setResult(null);
+    setStreamedOutput("");
     setStatus("submitting");
+
     try {
       const chatResult = await streamAgentChat({
-        prompt,
-        onEvent(event) {
-          setEvents((current) => appendRunEvent(current, event));
-          if (event.kind === "text") {
-            setStreamedOutput(event.text);
+        ...input,
+        ...(continuation ? { continuation } : {}),
+        onEvent(runEvent) {
+          setEvents((current) => appendRunEvent(current, runEvent));
+          if (runEvent.kind === "text") {
+            setStreamedOutput(runEvent.text);
           }
-          if (event.kind === "done") {
-            setStreamedOutput(event.result);
+          if (runEvent.kind === "done") {
+            setStreamedOutput(runEvent.result);
           }
           setStatus("running");
         },
       });
 
       setResult(chatResult);
+      setContinuation(chatResult.continuation ?? null);
       setStreamedOutput(chatResult.output ?? chatResult.reason ?? "");
       setStatus(
         chatResult.status === "skipped" ? "skipped" : chatResult.status,
@@ -65,6 +84,20 @@ export function AgentConsole() {
     }
   }
 
+  async function handleInputResponse(response: AgentInputResponse) {
+    await executeAgentTurn({ responses: [response] });
+  }
+
+  function handleNewSession() {
+    setError("");
+    setEvents([]);
+    setPrompt("");
+    setResult(null);
+    setContinuation(null);
+    setStatus("idle");
+    setStreamedOutput("");
+  }
+
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
       <label className="flex flex-col gap-2">
@@ -72,7 +105,9 @@ export function AgentConsole() {
         <textarea
           className="min-h-36 resize-y rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-950 shadow-sm outline-none transition focus:border-slate-400"
           onChange={(event) => setPrompt(event.target.value)}
-          placeholder="描述你希望 Agent 完成的工作"
+          placeholder={
+            continuation ? "继续当前 Agent 会话" : "描述你希望 Agent 完成的工作"
+          }
           value={prompt}
         />
       </label>
@@ -85,6 +120,16 @@ export function AgentConsole() {
               ? "重试"
               : "发送给 Agent"}
         </Button>
+        {continuation ? (
+          <Button
+            disabled={submitting}
+            onClick={handleNewSession}
+            type="button"
+            variant="outline"
+          >
+            开始新会话
+          </Button>
+        ) : null}
         <p
           aria-live="polite"
           className={
@@ -137,7 +182,11 @@ export function AgentConsole() {
         </section>
       ) : null}
 
-      <AgentRunTimeline events={events} />
+      <AgentRunTimeline
+        disabled={submitting}
+        events={events}
+        onInputResponse={handleInputResponse}
+      />
     </form>
   );
 }
@@ -192,6 +241,10 @@ function getStatusText(status: AgentConsoleStatus, error: string) {
 
   if (status === "completed") {
     return "Agent 已完成回复。";
+  }
+
+  if (status === "waiting") {
+    return "Agent 已回复，Eve 会话可继续。";
   }
 
   if (status === "skipped") {

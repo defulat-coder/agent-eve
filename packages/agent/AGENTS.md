@@ -11,6 +11,7 @@
 - `runAgent` 是 Chat SSE 和 Worker 共同调用的 Agent run execution seam，负责 run input validation、runtime dispatch 和 execution result assembly。
 - 具体实现委派给 `@agent-template/agent-claude` 或 `@agent-template/agent-eve`。
 - runtime adapter 已产生的 Agent run event 通过 `AgentRunResult.events` 透出；这里不新增持久化。
+- shared continuation 保持 runtime-neutral opaque token；selector 不解析 runtime cursor。结构化 input response 仅分发给声明支持 continuation 的 runtime。
 - `TOOLBOX_URL` 只在选择 Claude 时透传给对应 runtime；Eve 进程从自己的环境读取连接配置。公共 selector 不维护 MCP allowlist 或 client lifecycle。
 
 ## 不应该做

@@ -32,7 +32,13 @@ export const AgentRuntimeEnvSchema = z.object({
   ANTHROPIC_MODEL: z.string().default(defaultClaudeAgentModel),
   CLAUDE_AGENT_MODEL: z.string().default(defaultClaudeAgentModel),
   EVE_AGENT_HOST: z.string().optional(),
+  EVE_AGENT_MAX_RECONNECT_ATTEMPTS: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .optional(),
   EVE_AGENT_MODEL: z.string().default(defaultEveAgentModel),
+  EVE_AGENT_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   EVE_AGENT_SERVICE_TOKEN: z.string().optional(),
   TOOLBOX_URL: z.string().url().optional(),
 });
@@ -85,22 +91,34 @@ export async function runAgent(
   const parsed = AgentRunInputSchema.parse(input);
   const runtimeEnv = parseAgentRuntimeEnv(env);
   const agentState = getAgentRuntimeStateFromEnv(runtimeEnv);
+
   const eventOptions = options.onEvent ? { onEvent: options.onEvent } : {};
-  const run =
-    agentState.runtime === "eve"
-      ? await (options.runEve ?? runEveAgent)(
-          parsed,
-          parseEveAgentConfig(runtimeEnv),
-          eventOptions,
-        )
-      : await (options.runClaude ?? runClaudeAgent)(
-          parsed,
-          parseClaudeAgentConfig(runtimeEnv),
-          eventOptions,
-        );
+  let run: Awaited<ReturnType<typeof runEveAgent | typeof runClaudeAgent>>;
+
+  if (agentState.runtime === "eve") {
+    run = await (options.runEve ?? runEveAgent)(
+      parsed,
+      parseEveAgentConfig(runtimeEnv),
+      eventOptions,
+    );
+  } else {
+    if (parsed.continuation || parsed.responses) {
+      throw new Error(
+        "The selected Agent runtime does not support continuation or input responses",
+      );
+    }
+    if (!parsed.prompt) {
+      throw new Error("The selected Agent runtime requires a prompt");
+    }
+    run = await (options.runClaude ?? runClaudeAgent)(
+      { prompt: parsed.prompt },
+      parseClaudeAgentConfig(runtimeEnv),
+      eventOptions,
+    );
+  }
 
   return {
-    promptLength: parsed.prompt.length,
+    promptLength: parsed.prompt?.length ?? 0,
     runtime: agentState.runtime,
     configured: agentState.configured,
     model: agentState.model,
@@ -109,5 +127,6 @@ export async function runAgent(
     ...("output" in run ? { output: run.output } : {}),
     ...("reason" in run ? { reason: run.reason } : {}),
     ...("sessionId" in run ? { sessionId: run.sessionId } : {}),
+    ...("continuation" in run ? { continuation: run.continuation } : {}),
   };
 }

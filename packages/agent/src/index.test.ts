@@ -130,4 +130,16 @@ describe("Agent runtime selector", () => {
   it("rejects invalid Agent run input at the Agent runtime seam", async () => {
     await expect(runAgent({ prompt: "" }, {})).rejects.toThrow();
   });
+
+  it("rejects continuation when the selected runtime does not support it", async () => {
+    await expect(
+      runAgent(
+        {
+          prompt: "Continue",
+          continuation: { token: "opaque-token" },
+        },
+        { AGENT_RUNTIME: "claude" },
+      ),
+    ).rejects.toThrow("does not support continuation");
+  });
 });

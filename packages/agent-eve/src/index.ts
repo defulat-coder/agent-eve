@@ -1,15 +1,49 @@
 import { z } from "zod";
 import { Client } from "eve/client";
-import type { AgentRunEvent } from "@agent-template/shared";
+import type {
+  HandleMessageStreamEvent,
+  InputResponse,
+  SessionState,
+} from "eve/client";
+import type {
+  AgentContinuation,
+  AgentInputResponse,
+  AgentRunEvent,
+} from "@agent-template/shared";
 import { defaultEveAgentModel, readEveAgentModel } from "./config.js";
+import {
+  decodeEveContinuation,
+  encodeEveContinuation,
+} from "./eve-continuation.js";
+import {
+  projectEveStreamEvent,
+  projectEveTurn,
+} from "./eve-turn-projection.js";
+import { isLoopbackEveHost } from "./trust-policy.js";
 
 export const eveAgentDirectory = "packages/agent-eve/agent";
-export { defaultEveAgentModel, readEveAgentModel, readEveAnthropicBaseURL } from "./config.js";
+export const defaultEveAgentMaxReconnectAttempts = 5;
+export const defaultEveAgentRequestTimeoutMs = 120_000;
+export {
+  defaultEveAgentModel,
+  readEveAgentModel,
+  readEveAnthropicBaseURL,
+} from "./config.js";
 
 export const EveAgentConfigSchema = z.object({
-  host: z.string().min(1).optional(),
+  host: z.string().url().optional(),
+  maxReconnectAttempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(defaultEveAgentMaxReconnectAttempts),
   model: z.string().min(1).default(defaultEveAgentModel),
-  serviceToken: z.string().min(1).optional()
+  requestTimeoutMs: z
+    .number()
+    .int()
+    .positive()
+    .default(defaultEveAgentRequestTimeoutMs),
+  serviceToken: z.string().min(1).optional(),
 });
 
 export type EveAgentConfig = z.infer<typeof EveAgentConfigSchema>;
@@ -22,7 +56,9 @@ export type EveAgentRuntimeState = {
 };
 
 export type EveAgentRunInput = {
-  prompt: string;
+  prompt?: string | undefined;
+  continuation?: AgentContinuation | undefined;
+  responses?: AgentInputResponse[] | undefined;
 };
 
 export type EveAgentRunResult =
@@ -31,49 +67,72 @@ export type EveAgentRunResult =
       reason: string;
     }
   | {
-      status: "completed";
+      status: "completed" | "waiting";
       events: AgentRunEvent[];
       output: string;
       sessionId: string;
+      continuation?: AgentContinuation;
     }
   | {
       status: "failed";
       events: AgentRunEvent[];
       reason: string;
       sessionId?: string;
+      continuation?: AgentContinuation;
     };
 
-type EveClient = {
-  session(): {
-    send(input: string): Promise<EveMessageResponse>;
-  };
+type EveClientSession = {
+  readonly state: SessionState;
+  send(input: {
+    message?: string;
+    inputResponses?: readonly InputResponse[];
+    signal?: AbortSignal;
+  }): Promise<EveMessageResponse>;
 };
 
-type EveMessageResponse = AsyncIterable<unknown> & {
+type EveClient = {
+  session(state?: SessionState): EveClientSession;
+};
+
+type EveMessageResponse = AsyncIterable<HandleMessageStreamEvent> & {
+  continuationToken: string | undefined;
   sessionId: string;
 };
 
-export function parseEveAgentConfig(input: Record<string, unknown>): EveAgentConfig {
+export function parseEveAgentConfig(
+  input: Record<string, unknown>,
+): EveAgentConfig {
   return EveAgentConfigSchema.parse({
-    host: typeof input.EVE_AGENT_HOST === "string" && input.EVE_AGENT_HOST.length > 0 ? input.EVE_AGENT_HOST : undefined,
+    host: readNonEmptyString(input.EVE_AGENT_HOST),
+    maxReconnectAttempts: readNumber(
+      input.EVE_AGENT_MAX_RECONNECT_ATTEMPTS,
+      defaultEveAgentMaxReconnectAttempts,
+    ),
     model: readEveAgentModel(input),
-    serviceToken:
-      typeof input.EVE_AGENT_SERVICE_TOKEN === "string" && input.EVE_AGENT_SERVICE_TOKEN.length > 0
-        ? input.EVE_AGENT_SERVICE_TOKEN
-        : undefined
+    requestTimeoutMs: readNumber(
+      input.EVE_AGENT_REQUEST_TIMEOUT_MS,
+      defaultEveAgentRequestTimeoutMs,
+    ),
+    serviceToken: readNonEmptyString(input.EVE_AGENT_SERVICE_TOKEN),
   });
 }
 
-export function getEveAgentRuntimeState(config: EveAgentConfig): EveAgentRuntimeState {
+export function getEveAgentRuntimeState(
+  config: EveAgentConfig,
+): EveAgentRuntimeState {
   return {
-    configured: Boolean(config.host),
+    configured: Boolean(
+      config.host && (isLoopbackEveHost(config.host) || config.serviceToken),
+    ),
     model: config.model,
     authoredSurface: eveAgentDirectory,
-    ...(config.host ? { host: config.host } : {})
+    ...(config.host ? { host: config.host } : {}),
   };
 }
 
-export function getEveAgentRuntimeStateFromEnv(input: Record<string, unknown>): EveAgentRuntimeState {
+export function getEveAgentRuntimeStateFromEnv(
+  input: Record<string, unknown>,
+): EveAgentRuntimeState {
   return getEveAgentRuntimeState(parseEveAgentConfig(input));
 }
 
@@ -83,184 +142,171 @@ export async function runEveAgent(
   options: {
     createClient?: (host: string, config: EveAgentConfig) => EveClient;
     onEvent?: (event: AgentRunEvent) => void;
-  } = {}
+  } = {},
 ): Promise<EveAgentRunResult> {
   if (!config.host) {
     return { status: "skipped", reason: "EVE_AGENT_HOST is not configured" };
   }
 
-  const client = (options.createClient ?? createEveClient)(config.host, config);
-  const response = await client.session().send(input.prompt);
-  const rawEvents: unknown[] = [];
-  const events: AgentRunEvent[] = [];
-
-  for await (const rawEvent of response) {
-    rawEvents.push(rawEvent);
-
-    for (const event of formatEveAgentEvents(rawEvent)) {
-      events.push(event);
-      options.onEvent?.(event);
-    }
-  }
-
-  const failure = findEveFailure(rawEvents);
-
-  if (failure) {
-    const reason = failure;
-    const event = { kind: "error", message: reason } satisfies AgentRunEvent;
-    options.onEvent?.(event);
-
+  if (!isLoopbackEveHost(config.host) && !config.serviceToken) {
     return {
-      status: "failed",
-      events: [...events, event],
-      reason,
-      sessionId: response.sessionId
+      status: "skipped",
+      reason:
+        "EVE_AGENT_SERVICE_TOKEN is required for a non-loopback Eve Agent host",
     };
   }
 
-  const output = findEveOutput(rawEvents);
-  const event = { kind: "done", result: output } satisfies AgentRunEvent;
-  options.onEvent?.(event);
+  let initialState: SessionState | undefined;
+  try {
+    initialState = decodeEveContinuation(input.continuation);
+  } catch (caught) {
+    return createFailedResult(formatCaughtError(caught), options.onEvent);
+  }
+
+  const client = (options.createClient ?? createEveClient)(config.host, config);
+  const session = client.session(initialState);
+  const rawEvents: HandleMessageStreamEvent[] = [];
+  const events: AgentRunEvent[] = [];
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.requestTimeoutMs);
+  let response: EveMessageResponse | undefined;
+
+  try {
+    response = await session.send({
+      ...(input.prompt ? { message: input.prompt } : {}),
+      ...(input.responses
+        ? { inputResponses: input.responses as readonly InputResponse[] }
+        : {}),
+      signal: controller.signal,
+    });
+
+    for await (const rawEvent of response) {
+      rawEvents.push(rawEvent);
+      for (const event of projectEveStreamEvent(rawEvent)) {
+        emitEvent(events, event, options.onEvent);
+      }
+    }
+  } catch (caught) {
+    const reason = formatCaughtError(caught);
+    emitErrorOnce(events, reason, options.onEvent);
+    const continuation = encodeEveContinuation(session.state);
+
+    return {
+      status: "failed",
+      events,
+      reason,
+      ...(response?.sessionId ? { sessionId: response.sessionId } : {}),
+      ...(continuation ? { continuation } : {}),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  const projected = projectEveTurn(rawEvents);
+  const continuation = encodeEveContinuation(session.state);
+
+  if (!projected) {
+    const reason = "Eve Agent stream ended without a session boundary";
+    emitErrorOnce(events, reason, options.onEvent);
+    return {
+      status: "failed",
+      events,
+      reason,
+      sessionId: response.sessionId,
+      ...(continuation ? { continuation } : {}),
+    };
+  }
+
+  if (projected.status === "failed") {
+    emitErrorOnce(events, projected.reason, options.onEvent);
+    return {
+      status: "failed",
+      events,
+      reason: projected.reason,
+      sessionId: response.sessionId,
+      ...(continuation ? { continuation } : {}),
+    };
+  }
+
+  if (projected.output) {
+    emitEvent(
+      events,
+      { kind: "done", result: projected.output },
+      options.onEvent,
+    );
+  }
 
   return {
-    status: "completed",
-    events: [...events, event],
-    output,
-    sessionId: response.sessionId
+    status: projected.status,
+    events,
+    output: projected.output,
+    sessionId: response.sessionId,
+    ...(continuation ? { continuation } : {}),
   };
 }
 
 function createEveClient(host: string, config: EveAgentConfig): EveClient {
   return new Client({
     host,
-    ...(config.serviceToken ? { headers: { "x-agent-template-eve-token": config.serviceToken } } : {})
+    maxReconnectAttempts: config.maxReconnectAttempts,
+    preserveCompletedSessions: true,
+    redirect: "error",
+    ...(config.serviceToken
+      ? {
+          headers: {
+            "x-agent-template-eve-token": config.serviceToken,
+          },
+        }
+      : {}),
   });
 }
 
-function formatEveAgentEvents(event: unknown): AgentRunEvent[] {
-  if (!isRecord(event) || typeof event.type !== "string") {
-    return [{ kind: "unknown", text: formatEveOutput(event) }];
-  }
+function createFailedResult(
+  reason: string,
+  onEvent: ((event: AgentRunEvent) => void) | undefined,
+): EveAgentRunResult {
+  const event = { kind: "error", message: reason } satisfies AgentRunEvent;
+  onEvent?.(event);
+  return { status: "failed", events: [event], reason };
+}
 
-  if (event.type === "message.appended" && isRecord(event.data) && typeof event.data.messageSoFar === "string") {
-    return [{ kind: "text", text: event.data.messageSoFar }];
-  }
+function emitEvent(
+  events: AgentRunEvent[],
+  event: AgentRunEvent,
+  onEvent: ((event: AgentRunEvent) => void) | undefined,
+) {
+  events.push(event);
+  onEvent?.(event);
+}
 
-  if (event.type === "message.completed" && isRecord(event.data) && typeof event.data.message === "string") {
-    return [{ kind: "text", text: event.data.message }];
-  }
-
-  if (event.type === "actions.requested" && isRecord(event.data) && Array.isArray(event.data.actions)) {
-    return event.data.actions.map(formatEveActionRequest);
-  }
-
-  if (event.type === "action.result" && isRecord(event.data)) {
-    const tool = readEveActionResultToolName(event.data.result);
-    return tool ? [{ kind: "tool-result", tool }] : [];
-  }
-
+function emitErrorOnce(
+  events: AgentRunEvent[],
+  message: string,
+  onEvent: ((event: AgentRunEvent) => void) | undefined,
+) {
   if (
-    (event.type === "step.failed" || event.type === "turn.failed" || event.type === "session.failed") &&
-    isRecord(event.data) &&
-    typeof event.data.message === "string"
+    !events.some((event) => event.kind === "error" && event.message === message)
   ) {
-    return [{ kind: "error", message: event.data.message }];
+    emitEvent(events, { kind: "error", message }, onEvent);
   }
-
-  return [];
 }
 
-function formatEveActionRequest(action: unknown): AgentRunEvent {
-  if (!isRecord(action)) {
-    return { kind: "unknown", text: formatEveOutput(action) };
-  }
-
-  return {
-    kind: "tool-call",
-    tool: readEveActionRequestToolName(action),
-    input: formatEveOutput(action.input ?? {})
-  };
+function readNonEmptyString(value: unknown) {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
-function readEveActionRequestToolName(action: Record<string, unknown>): string {
-  if (action.kind === "tool-call" && typeof action.toolName === "string") {
-    return action.toolName;
+function readNumber(value: unknown, fallback: number) {
+  if (value === undefined || value === "") {
+    return fallback;
   }
 
-  if (action.kind === "subagent-call" && typeof action.subagentName === "string") {
-    return `eve:subagent:${action.subagentName}`;
-  }
-
-  if (action.kind === "remote-agent-call" && typeof action.remoteAgentName === "string") {
-    return `eve:subagent:${action.remoteAgentName}`;
-  }
-
-  return "eve:load-skill";
+  return typeof value === "number" ? value : Number(value);
 }
 
-function readEveActionResultToolName(result: unknown): string | undefined {
-  if (!isRecord(result)) {
-    return undefined;
+function formatCaughtError(caught: unknown) {
+  if (caught instanceof Error && caught.name === "AbortError") {
+    return "Eve Agent request timed out";
   }
 
-  if (result.kind === "tool-result" && typeof result.toolName === "string") {
-    return result.toolName;
-  }
-
-  if (result.kind === "subagent-result" && typeof result.subagentName === "string") {
-    return `eve:subagent:${result.subagentName}`;
-  }
-
-  if (result.kind === "load-skill-result") {
-    return "eve:load-skill";
-  }
-
-  return undefined;
-}
-
-function findEveFailure(events: unknown[]): string | undefined {
-  for (const event of events) {
-    if (
-      isRecord(event) &&
-      (event.type === "session.failed" || event.type === "turn.failed" || event.type === "step.failed") &&
-      isRecord(event.data) &&
-      typeof event.data.message === "string"
-    ) {
-      return event.data.message;
-    }
-  }
-
-  return undefined;
-}
-
-function findEveOutput(events: unknown[]): string {
-  let output = "";
-
-  for (const event of events) {
-    if (!isRecord(event) || !isRecord(event.data)) {
-      continue;
-    }
-
-    if (event.type === "result.completed") {
-      output = formatEveOutput(event.data.result);
-    }
-
-    if (event.type === "message.completed" && typeof event.data.message === "string") {
-      output = event.data.message;
-    }
-
-    if (event.type === "message.appended" && typeof event.data.messageSoFar === "string") {
-      output = event.data.messageSoFar;
-    }
-  }
-
-  return output;
-}
-
-function formatEveOutput(value: unknown): string {
-  return typeof value === "string" ? value : JSON.stringify(value) ?? "";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return caught instanceof Error ? caught.message : "Eve Agent request failed";
 }

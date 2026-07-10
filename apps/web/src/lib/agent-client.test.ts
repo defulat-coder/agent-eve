@@ -118,6 +118,42 @@ describe("streamAgentChat", () => {
     });
     expect(events).toEqual([{ kind: "text", text: "Working" }]);
   });
+
+  it("sends structured HITL responses with an opaque Agent continuation", async () => {
+    const continuation = { token: "opaque-token" };
+    const responses = [{ requestId: "request-1", optionId: "approve" }];
+    const fetcher = vi.fn().mockResolvedValue({
+      body: createStream(
+        `event: result\ndata: ${JSON.stringify({
+          promptLength: 2,
+          runtime: "eve",
+          configured: true,
+          model: "kimi-for-coding",
+          status: "waiting",
+          events: [{ kind: "waiting" }],
+          output: "可以继续。",
+          sessionId: "session-1",
+          continuation,
+        })}\n\n`,
+      ),
+      ok: true,
+    });
+
+    await expect(
+      streamAgentChat({
+        continuation,
+        responses,
+        baseUrl: "http://api.test",
+        fetcher,
+      }),
+    ).resolves.toMatchObject({ status: "waiting", continuation });
+
+    expect(fetcher).toHaveBeenCalledWith("http://api.test/agent/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ continuation, responses }),
+    });
+  });
 });
 
 function createStream(input: string) {

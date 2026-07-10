@@ -3,6 +3,8 @@ import {
   AgentRunResultSchema,
   AgentRunEventSchema,
   type AgentJobAccepted,
+  type AgentContinuation,
+  type AgentInputResponse,
   type AgentRunEvent,
   type AgentRunResult,
 } from "@agent-template/shared";
@@ -15,7 +17,12 @@ type SubmitAgentJobOptions = {
   fetcher?: typeof fetch;
 };
 
-type StreamAgentChatOptions = SubmitAgentJobOptions & {
+type StreamAgentChatOptions = {
+  prompt?: string;
+  continuation?: AgentContinuation;
+  responses?: AgentInputResponse[];
+  baseUrl?: string;
+  fetcher?: typeof fetch;
   onEvent?: (event: AgentRunEvent) => void;
 };
 
@@ -55,15 +62,17 @@ export async function submitAgentJob({
 }
 
 export async function streamAgentChat({
-  prompt,
+  prompt = "",
   baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:14000",
   fetcher = fetch,
   onEvent,
+  continuation,
+  responses,
 }: StreamAgentChatOptions): Promise<AgentRunResult> {
   const trimmedPrompt = prompt.trim();
 
-  if (!trimmedPrompt) {
-    throw new Error("Prompt is required");
+  if (!trimmedPrompt && !responses?.length) {
+    throw new Error("Prompt or input responses are required");
   }
 
   let response: Response;
@@ -72,7 +81,11 @@ export async function streamAgentChat({
     response = await fetcher(`${baseUrl}/agent/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: trimmedPrompt }),
+      body: JSON.stringify({
+        ...(trimmedPrompt ? { prompt: trimmedPrompt } : {}),
+        ...(continuation ? { continuation } : {}),
+        ...(responses?.length ? { responses } : {}),
+      }),
     });
   } catch {
     throw new Error("Unable to reach Agent chat API");
