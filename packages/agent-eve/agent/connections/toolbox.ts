@@ -1,4 +1,5 @@
 import { defineMcpClientConnection } from "eve/connections";
+import { never } from "eve/tools/approval";
 
 export const eveToolboxToolNames = [
   "get-agent-run-summary",
@@ -22,6 +23,7 @@ export default defineMcpClientConnection({
   url: toMcpEndpoint(process.env.TOOLBOX_URL ?? "http://localhost:15000"),
   description:
     "MCP Toolbox read models for Agent runs, template events, and synthetic ecommerce operations.",
+  approval: never(),
   tools: { allow: [...eveToolboxToolNames] },
 });
 

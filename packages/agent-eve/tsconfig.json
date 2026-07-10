@@ -6,5 +6,5 @@
     "outDir": "dist",
     "types": ["node"]
   },
-  "include": ["src/**/*.ts", "agent/**/*.ts"]
+  "include": ["src/**/*.ts", "agent/**/*.ts", "evals/**/*.ts"]
 }

@@ -1,12 +1,24 @@
 import { defineAgent, type AgentDefinition } from "eve";
-import { createEveAnthropicModel } from "../src/config";
+import {
+  createEveAnthropicModel,
+  readEveAgentRuntimeLimits,
+} from "../src/config";
+
+const limits = readEveAgentRuntimeLimits(process.env);
 
 const agent: AgentDefinition = defineAgent({
   model: createEveAnthropicModel(process.env),
-  modelContextWindowTokens: 128_000,
+  modelContextWindowTokens: limits.modelContextWindowTokens,
   compaction: {
-    modelContextWindowTokens: 128_000
-  }
+    modelContextWindowTokens: limits.modelContextWindowTokens,
+    thresholdPercent: limits.compactionThreshold,
+  },
+  limits: {
+    maxInputTokensPerSession: limits.maxInputTokensPerSession,
+    maxOutputTokensPerSession: limits.maxOutputTokensPerSession,
+    maxSubagentDepth: 1,
+    maxSubagents: 4,
+  },
 });
 
 export default agent;

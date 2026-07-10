@@ -1,6 +1,8 @@
 node_modules
 .turbo
 .eve
+.output
+.workflow-data
 .next
 dist
 coverage
