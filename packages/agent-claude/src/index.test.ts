@@ -1,6 +1,3 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   defaultAnthropicBaseUrl,
@@ -9,6 +6,7 @@ import {
   getClaudeAgentRuntimeStateFromEnv,
   runClaudeAgent,
 } from "./index.js";
+import { claudeToolboxToolNames } from "./mcp.js";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
 describe("Claude Agent runtime", () => {
@@ -32,14 +30,6 @@ describe("Claude Agent runtime", () => {
         },
         {
           loadSdk: async () => ({
-            createSdkMcpServer(options) {
-              return {
-                ...options,
-                instance: {} as never,
-                name: String(options.name),
-                type: "sdk",
-              };
-            },
             query(params) {
               calls.push(params);
 
@@ -61,9 +51,6 @@ describe("Claude Agent runtime", () => {
                 } as unknown as SDKMessage;
               })();
             },
-            tool(name, description, inputSchema, handler) {
-              return { description, handler, inputSchema, name };
-            },
           }),
         },
       ),
@@ -83,10 +70,13 @@ describe("Claude Agent runtime", () => {
             CLAUDE_CONFIG_DIR: expect.any(String),
           },
           cwd: expect.any(String),
+          allowedTools: [],
           includePartialMessages: true,
           maxTurns: defaultClaudeAgentMaxTurns,
+          mcpServers: {},
           permissionMode: "dontAsk",
           persistSession: false,
+          strictMcpConfig: true,
           tools: [],
         },
       },
@@ -114,14 +104,6 @@ describe("Claude Agent runtime", () => {
         },
         {
           loadSdk: async () => ({
-            createSdkMcpServer(options) {
-              return {
-                ...options,
-                instance: {} as never,
-                name: String(options.name),
-                type: "sdk",
-              };
-            },
             query() {
               return (async function* () {
                 yield {
@@ -174,9 +156,6 @@ describe("Claude Agent runtime", () => {
                 } as unknown as SDKMessage;
               })();
             },
-            tool(name, description, inputSchema, handler) {
-              return { description, handler, inputSchema, name };
-            },
           }),
           onEvent(event) {
             events.push(event);
@@ -200,7 +179,7 @@ describe("Claude Agent runtime", () => {
     ]);
   });
 
-  it("exposes Toolbox through a Host-managed SDK MCP server", async () => {
+  it("connects Toolbox directly from the Claude runtime MCP config", async () => {
     const calls: unknown[] = [];
 
     await expect(
@@ -210,19 +189,10 @@ describe("Claude Agent runtime", () => {
           authToken: "test-token",
           baseUrl: defaultAnthropicBaseUrl,
           model: "kimi-for-coding",
-          toolboxToolset: "agent_template_read_model",
           toolboxUrl: "http://toolbox:15000",
         },
         {
           loadSdk: async () => ({
-            createSdkMcpServer(options) {
-              return {
-                ...options,
-                instance: {} as never,
-                name: String(options.name),
-                type: "sdk",
-              };
-            },
             query(params) {
               calls.push(params);
 
@@ -238,7 +208,7 @@ describe("Claude Agent runtime", () => {
                       {
                         id: "toolu-1",
                         input: { limit: 3 },
-                        name: "mcp__agent_template_mcp_host__list-agent-runs",
+                        name: "mcp__toolbox__list-agent-runs",
                         type: "tool_use",
                       },
                     ],
@@ -265,9 +235,6 @@ describe("Claude Agent runtime", () => {
                 } as unknown as SDKMessage;
               })();
             },
-            tool(name, description, inputSchema, handler) {
-              return { description, handler, inputSchema, name };
-            },
           }),
         },
       ),
@@ -276,7 +243,7 @@ describe("Claude Agent runtime", () => {
         {
           input: '{"limit":3}',
           kind: "tool-call",
-          tool: "mcp__agent_template_mcp_host__list-agent-runs",
+          tool: "mcp__toolbox__list-agent-runs",
         },
         { kind: "done", result: "Found recent runs" },
       ],
@@ -287,67 +254,22 @@ describe("Claude Agent runtime", () => {
     expect(calls).toMatchObject([
       {
         options: {
-          allowedTools: [
-            "mcp__agent_template_mcp_host__get-agent-run-summary",
-            "mcp__agent_template_mcp_host__get-ecommerce-order-detail",
-            "mcp__agent_template_mcp_host__get-template-event",
-            "mcp__agent_template_mcp_host__list-agent-run-timeline",
-            "mcp__agent_template_mcp_host__list-agent-runs",
-            "mcp__agent_template_mcp_host__list-ecommerce-fulfillment-exceptions",
-            "mcp__agent_template_mcp_host__list-ecommerce-orders-in-window",
-            "mcp__agent_template_mcp_host__list-ecommerce-top-products",
-            "mcp__agent_template_mcp_host__list-failed-agent-runs-in-window",
-            "mcp__agent_template_mcp_host__list-template-events",
-            "mcp__agent_template_mcp_host__list-template-events-in-window",
-            "mcp__agent_template_mcp_host__summarize-template-events-by-type",
-            "mcp__agent_template_mcp_host__summarize-ecommerce-sales-by-channel",
-            "mcp__agent_template_mcp_host__summarize-ecommerce-sales-by-day",
-            "mcp__agent_template_mcp_host__summarize-tool-invocations",
-          ],
+          allowedTools: claudeToolboxToolNames.map(
+            (name) => `mcp__toolbox__${name}`,
+          ),
           cwd: expect.any(String),
           includePartialMessages: true,
           mcpServers: {
-            agent_template_mcp_host: {
-              name: "agent_template_mcp_host",
-              type: "sdk",
-              tools: [
-                expect.objectContaining({ name: "list-agent-runs" }),
-                expect.objectContaining({ name: "get-agent-run-summary" }),
-                expect.objectContaining({ name: "list-agent-run-timeline" }),
-                expect.objectContaining({ name: "list-template-events" }),
-                expect.objectContaining({
-                  name: "summarize-ecommerce-sales-by-day",
-                }),
-                expect.objectContaining({
-                  name: "summarize-ecommerce-sales-by-channel",
-                }),
-                expect.objectContaining({
-                  name: "list-ecommerce-top-products",
-                }),
-                expect.objectContaining({
-                  name: "list-ecommerce-orders-in-window",
-                }),
-                expect.objectContaining({
-                  name: "get-ecommerce-order-detail",
-                }),
-                expect.objectContaining({
-                  name: "list-ecommerce-fulfillment-exceptions",
-                }),
-                expect.objectContaining({
-                  name: "list-template-events-in-window",
-                }),
-                expect.objectContaining({
-                  name: "summarize-template-events-by-type",
-                }),
-                expect.objectContaining({
-                  name: "list-failed-agent-runs-in-window",
-                }),
-                expect.objectContaining({ name: "summarize-tool-invocations" }),
-                expect.objectContaining({ name: "get-template-event" }),
-              ],
-              version: "0.1.0",
+            toolbox: {
+              type: "http",
+              url: "http://toolbox:15000/mcp",
+              tools: claudeToolboxToolNames.map((name) => ({
+                name,
+                permission_policy: "always_allow",
+              })),
             },
           },
+          strictMcpConfig: true,
         },
       },
     ]);
@@ -355,114 +277,5 @@ describe("Claude Agent runtime", () => {
       calls[0] as { options: { env: Record<string, string | undefined> } }
     ).options.env;
     expect(subprocessEnv).not.toHaveProperty("TOOLBOX_URL");
-    expect(subprocessEnv).not.toHaveProperty("TOOLBOX_TOOLSET");
-  });
-
-  it("exposes Host-managed MCP tools from filesystem config without Toolbox env", async () => {
-    const previousInitCwd = process.env.INIT_CWD;
-    const dir = mkdtempSync(join(tmpdir(), "claude-mcp-host-config-"));
-    const calls: unknown[] = [];
-    process.env.INIT_CWD = dir;
-    writeFileSync(
-      join(dir, "mcp-host.config.json"),
-      JSON.stringify({
-        servers: {
-          toolbox: {
-            toolset: "agent_template_read_model",
-            url: "http://file-toolbox:15000",
-          },
-        },
-      }),
-      "utf8",
-    );
-
-    try {
-      await expect(
-        runClaudeAgent(
-          { prompt: "List recent agent runs" },
-          {
-            authToken: "test-token",
-            baseUrl: defaultAnthropicBaseUrl,
-            model: "kimi-for-coding",
-          },
-          {
-            loadSdk: async () => ({
-              createSdkMcpServer(options) {
-                return {
-                  ...options,
-                  instance: {} as never,
-                  name: String(options.name),
-                  type: "sdk",
-                };
-              },
-              query(params) {
-                calls.push(params);
-
-                return (async function* () {
-                  yield {
-                    duration_api_ms: 0,
-                    duration_ms: 0,
-                    is_error: false,
-                    modelUsage: {},
-                    num_turns: 1,
-                    permission_denials: [],
-                    result: "Found recent runs",
-                    session_id: "claude-session-1",
-                    stop_reason: "stop",
-                    subtype: "success",
-                    total_cost_usd: 0,
-                    type: "result",
-                    usage: {},
-                  } as unknown as SDKMessage;
-                })();
-              },
-              tool(name, description, inputSchema, handler) {
-                return { description, handler, inputSchema, name };
-              },
-            }),
-          },
-        ),
-      ).resolves.toMatchObject({
-        output: "Found recent runs",
-        status: "completed",
-      });
-
-      expect(calls).toMatchObject([
-        {
-          options: {
-            allowedTools: [
-              "mcp__agent_template_mcp_host__get-agent-run-summary",
-              "mcp__agent_template_mcp_host__get-ecommerce-order-detail",
-              "mcp__agent_template_mcp_host__get-template-event",
-              "mcp__agent_template_mcp_host__list-agent-run-timeline",
-              "mcp__agent_template_mcp_host__list-agent-runs",
-              "mcp__agent_template_mcp_host__list-ecommerce-fulfillment-exceptions",
-              "mcp__agent_template_mcp_host__list-ecommerce-orders-in-window",
-              "mcp__agent_template_mcp_host__list-ecommerce-top-products",
-              "mcp__agent_template_mcp_host__list-failed-agent-runs-in-window",
-              "mcp__agent_template_mcp_host__list-template-events",
-              "mcp__agent_template_mcp_host__list-template-events-in-window",
-              "mcp__agent_template_mcp_host__summarize-template-events-by-type",
-              "mcp__agent_template_mcp_host__summarize-ecommerce-sales-by-channel",
-              "mcp__agent_template_mcp_host__summarize-ecommerce-sales-by-day",
-              "mcp__agent_template_mcp_host__summarize-tool-invocations",
-            ],
-            mcpServers: {
-              agent_template_mcp_host: {
-                name: "agent_template_mcp_host",
-                type: "sdk",
-              },
-            },
-          },
-        },
-      ]);
-    } finally {
-      if (previousInitCwd === undefined) {
-        delete process.env.INIT_CWD;
-      } else {
-        process.env.INIT_CWD = previousInitCwd;
-      }
-      rmSync(dir, { force: true, recursive: true });
-    }
   });
 });

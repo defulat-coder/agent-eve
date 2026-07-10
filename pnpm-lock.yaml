@@ -50,9 +50,6 @@ importers:
       '@agent-template/logger':
         specifier: workspace:*
         version: link:../../packages/logger
-      '@agent-template/mcp-host':
-        specifier: workspace:*
-        version: link:../../packages/mcp-host
       '@agent-template/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -183,9 +180,6 @@ importers:
 
   packages/agent-claude:
     dependencies:
-      '@agent-template/mcp-host':
-        specifier: workspace:*
-        version: link:../mcp-host
       '@agent-template/shared':
         specifier: workspace:*
         version: link:../shared
@@ -202,9 +196,6 @@ importers:
 
   packages/agent-eve:
     dependencies:
-      '@agent-template/mcp-host':
-        specifier: workspace:*
-        version: link:../mcp-host
       '@agent-template/shared':
         specifier: workspace:*
         version: link:../shared
@@ -252,22 +243,6 @@ importers:
       pino:
         specifier: ^10.3.1
         version: 10.3.1
-    devDependencies:
-      vitest:
-        specifier: ^4.1.9
-        version: 4.1.9(@types/node@26.0.1)(vite@8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4))
-
-  packages/mcp-host:
-    dependencies:
-      '@agent-template/shared':
-        specifier: workspace:*
-        version: link:../shared
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.29.0
-        version: 1.29.0(zod@4.4.3)
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
     devDependencies:
       vitest:
         specifier: ^4.1.9

@@ -35,7 +35,6 @@ export const AgentRuntimeEnvSchema = z.object({
   EVE_AGENT_MODEL: z.string().default(defaultEveAgentModel),
   EVE_AGENT_SERVICE_TOKEN: z.string().optional(),
   TOOLBOX_URL: z.string().url().optional(),
-  TOOLBOX_TOOLSET: z.string().optional(),
 });
 
 export type AgentRuntimeName = z.infer<typeof AgentRuntimeNameSchema>;

@@ -6,7 +6,6 @@ x-runtime-environment: &runtime-environment
   DATABASE_URL: postgresql://project_template:project_template@postgres:5432/project_template?schema=public
   REDIS_URL: redis://redis:6379
   TOOLBOX_URL: http://toolbox:15000
-  TOOLBOX_TOOLSET: agent_template_read_model
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
   ANTHROPIC_AUTH_TOKEN: ${ANTHROPIC_AUTH_TOKEN:-}
   ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.kimi.com/coding/}
@@ -145,7 +144,11 @@ services:
     ports:
       - "13010:13010"
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:13010/eve/v1/health >/dev/null"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:13010/eve/v1/health >/dev/null",
+        ]
       interval: 10s
       timeout: 3s
       retries: 10

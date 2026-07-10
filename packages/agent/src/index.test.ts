@@ -102,14 +102,12 @@ describe("Agent runtime selector", () => {
         },
         {
           ANTHROPIC_AUTH_TOKEN: "test-token",
-          TOOLBOX_TOOLSET: "agent_template_read_model",
           TOOLBOX_URL: "http://toolbox:15000",
         },
         {
           runClaude: async (_input, config) => {
             expect(config).toMatchObject({
               authToken: "test-token",
-              toolboxToolset: "agent_template_read_model",
               toolboxUrl: "http://toolbox:15000",
             });
 

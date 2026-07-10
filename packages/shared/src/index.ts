@@ -22,25 +22,8 @@ export {
   type AgentRunResult,
 } from "./agent-run";
 export {
-  McpToolboxLimitSchema,
-  McpToolboxOrderNumberInputSchema,
-  McpToolboxRunIdSchema,
-  McpToolboxRunSummaryInputSchema,
-  McpToolboxRunTimelineInputSchema,
-  McpToolboxTimeWindowSchema,
-  McpToolboxTimeWindowWithLimitSchema,
-  McpToolboxTimelineLimitSchema,
-  McpToolboxTimestampSchema,
-} from "./mcp-toolbox";
-export {
   AgentArtifactSchema,
-  AgentRunsDashboardDataSchema,
-  AgentMcpAppUiSchema,
-  AgentRunUiSchema,
   AgentRunEventSchema,
   type AgentArtifact,
-  type AgentRunsDashboardData,
-  type AgentMcpAppUi,
-  type AgentRunUi,
   type AgentRunEvent,
 } from "./agent-run-events";
