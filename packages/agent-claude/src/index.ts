@@ -4,11 +4,12 @@ import { tmpdir } from "node:os";
 import { z } from "zod";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentRunEvent } from "@agent-template/shared";
-import { createClaudeMcpServers, readClaudeMcpAllowedTools } from "./mcp.js";
+import { resolveClaudeAgentRoot } from "./authored-surface.js";
 
 export const defaultClaudeAgentModel = "kimi-for-coding";
 export const defaultAnthropicBaseUrl = "https://api.kimi.com/coding/";
 export const defaultClaudeAgentMaxTurns = 100;
+export const defaultClaudeToolboxUrl = "http://localhost:15000";
 const partialTextEventMinDelta = 200;
 
 export const ClaudeAgentConfigSchema = z.object({
@@ -16,6 +17,7 @@ export const ClaudeAgentConfigSchema = z.object({
   authToken: z.string().min(1).optional(),
   baseUrl: z.string().url().optional(),
   model: z.string().min(1).default(defaultClaudeAgentModel),
+  agentRoot: z.string().min(1).optional(),
   toolboxUrl: z.string().url().optional(),
 });
 
@@ -56,6 +58,7 @@ export function parseClaudeAgentConfig(
     authToken: input.ANTHROPIC_AUTH_TOKEN || undefined,
     baseUrl: input.ANTHROPIC_BASE_URL || undefined,
     model: input.CLAUDE_AGENT_MODEL || input.ANTHROPIC_MODEL || undefined,
+    agentRoot: input.CLAUDE_AGENT_ROOT || undefined,
     toolboxUrl: input.TOOLBOX_URL || undefined,
   });
 }
@@ -112,13 +115,13 @@ export async function runClaudeAgent(
     prompt: input.prompt,
     options: {
       env: createClaudeAgentSubprocessEnv(config),
-      cwd: readClaudeProjectDir(),
-      allowedTools: readClaudeMcpAllowedTools(config.toolboxUrl),
+      cwd: resolveClaudeAgentRoot(config.agentRoot),
       maxTurns: defaultClaudeAgentMaxTurns,
-      mcpServers: createClaudeMcpServers(config.toolboxUrl),
       permissionMode: "dontAsk",
       persistSession: false,
-      strictMcpConfig: true,
+      settingSources: ["project"],
+      skills: "all",
+      systemPrompt: { type: "preset", preset: "claude_code" },
       tools: [],
       includePartialMessages: true,
       ...(!config.baseUrl ? { model: config.model } : {}),
@@ -323,6 +326,9 @@ function createClaudeAgentSubprocessEnv(config: ClaudeAgentConfig) {
     ...process.env,
     CLAUDE_CODE_AUTO_COMPACT_WINDOW: "262144",
     CLAUDE_CONFIG_DIR: claudeConfigDir,
+    CLAUDE_TOOLBOX_MCP_URL: toMcpEndpoint(
+      config.toolboxUrl ?? defaultClaudeToolboxUrl,
+    ),
     ...(config.apiKey ? { ANTHROPIC_API_KEY: config.apiKey } : {}),
     ...(config.authToken ? { ANTHROPIC_AUTH_TOKEN: config.authToken } : {}),
     ...(config.baseUrl ? { ANTHROPIC_BASE_URL: config.baseUrl } : {}),
@@ -346,10 +352,7 @@ function createClaudeAgentSubprocessEnv(config: ClaudeAgentConfig) {
   return env;
 }
 
-function readClaudeProjectDir() {
-  if (process.env.CLAUDE_PROJECT_DIR) {
-    return process.env.CLAUDE_PROJECT_DIR;
-  }
-
-  return process.env.INIT_CWD ?? process.cwd();
+function toMcpEndpoint(toolboxUrl: string) {
+  const normalized = toolboxUrl.replace(/\/+$/, "");
+  return normalized.endsWith("/mcp") ? normalized : `${normalized}/mcp`;
 }

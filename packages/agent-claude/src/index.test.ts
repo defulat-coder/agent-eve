@@ -6,7 +6,7 @@ import {
   getClaudeAgentRuntimeStateFromEnv,
   runClaudeAgent,
 } from "./index.js";
-import { claudeToolboxToolNames } from "./mcp.js";
+import { resolveClaudeAgentRoot } from "./authored-surface.js";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
 describe("Claude Agent runtime", () => {
@@ -68,15 +68,16 @@ describe("Claude Agent runtime", () => {
             ANTHROPIC_BASE_URL: defaultAnthropicBaseUrl,
             CLAUDE_CODE_AUTO_COMPACT_WINDOW: "262144",
             CLAUDE_CONFIG_DIR: expect.any(String),
+            CLAUDE_TOOLBOX_MCP_URL: "http://localhost:15000/mcp",
           },
-          cwd: expect.any(String),
-          allowedTools: [],
+          cwd: resolveClaudeAgentRoot(undefined),
           includePartialMessages: true,
           maxTurns: defaultClaudeAgentMaxTurns,
-          mcpServers: {},
           permissionMode: "dontAsk",
           persistSession: false,
-          strictMcpConfig: true,
+          settingSources: ["project"],
+          skills: "all",
+          systemPrompt: { type: "preset", preset: "claude_code" },
           tools: [],
         },
       },
@@ -179,7 +180,7 @@ describe("Claude Agent runtime", () => {
     ]);
   });
 
-  it("connects Toolbox directly from the Claude runtime MCP config", async () => {
+  it("loads Toolbox from the Claude filesystem-authored surface", async () => {
     const calls: unknown[] = [];
 
     await expect(
@@ -254,22 +255,11 @@ describe("Claude Agent runtime", () => {
     expect(calls).toMatchObject([
       {
         options: {
-          allowedTools: claudeToolboxToolNames.map(
-            (name) => `mcp__toolbox__${name}`,
-          ),
-          cwd: expect.any(String),
+          cwd: resolveClaudeAgentRoot(undefined),
           includePartialMessages: true,
-          mcpServers: {
-            toolbox: {
-              type: "http",
-              url: "http://toolbox:15000/mcp",
-              tools: claudeToolboxToolNames.map((name) => ({
-                name,
-                permission_policy: "always_allow",
-              })),
-            },
-          },
-          strictMcpConfig: true,
+          settingSources: ["project"],
+          skills: "all",
+          systemPrompt: { type: "preset", preset: "claude_code" },
         },
       },
     ]);
@@ -277,5 +267,8 @@ describe("Claude Agent runtime", () => {
       calls[0] as { options: { env: Record<string, string | undefined> } }
     ).options.env;
     expect(subprocessEnv).not.toHaveProperty("TOOLBOX_URL");
+    expect(subprocessEnv.CLAUDE_TOOLBOX_MCP_URL).toBe(
+      "http://toolbox:15000/mcp",
+    );
   });
 });
