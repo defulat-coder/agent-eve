@@ -64,13 +64,13 @@ pnpm db:seed
 - `apps/web`: 用户界面和浏览器端体验。
 - `apps/api`: HTTP API、健康检查、Agent job intake、Chat SSE。
 - `apps/worker`: BullMQ 后台任务消费和 Worker runtime 装配。
-- `apps/toolbox`: MCP Toolbox `tools.yaml` 和数据库 Tool provider 配置。
+- `apps/toolbox`: MCP Toolbox `tools.yaml`、数据库 Tool provider 配置和跨 runtime Skill authoring CLI。
 - `packages/ui`: 共享 React UI 组件和样式工具。
 - `packages/shared`: 前后端共享 Zod schema、类型和常量。
 - `packages/db`: Prisma schema、Prisma Client 和数据库配置。
 - `packages/logger`: Pino logger 封装。
 - `packages/agent`: Agent runtime contract、`AGENT_RUNTIME` selector 和公共入口。
-- `packages/agent-claude`: Claude Agent SDK backed runtime。
+- `packages/agent-claude`: Claude Agent SDK adapter 和 `agent/` filesystem-authored surface。
 - `packages/agent-eve`: Eve filesystem-first runtime 和 `agent/` authored surface。
 
 ## 架构规则
@@ -82,7 +82,7 @@ pnpm db:seed
 - Agent runtime 只通过 `AGENT_RUNTIME=claude|eve` 选择；不要从 request 或 job payload 覆盖。
 - Kimi Code 接入 Cloud 和 Eve 都使用 Anthropic-compatible 协议；API Key 只放本地 `.env` 或部署环境变量。
 - `TOOLBOX_URL` 是 Agent runtime 自己持有的 MCP 连接地址，不参与 runtime 选择；不再维护平台级 MCP registry 或 `TOOLBOX_TOOLSET`。
-- Claude runtime 在 `packages/agent-claude/src/mcp.ts` 维护 HTTP MCP config 和 allowlist；Eve runtime 在 `packages/agent-eve/agent/connections/toolbox.ts` 维护 filesystem-first MCP connection 和 allowlist。
+- Claude runtime 在 `packages/agent-claude/agent/.mcp.json` 和 `agent/.claude/settings.json` 维护 HTTP MCP config 与 allowlist；Eve runtime 在 `packages/agent-eve/agent/connections/toolbox.ts` 维护 filesystem-first MCP connection 和 allowlist。
 - 新增或删除 Toolbox Tool 时，必须同步更新 Claude 与 Eve 两个 runtime 的 allowlist；不要在 `packages/shared` 或 `apps/api` 重新抽平台级 MCP module。
 - API/Web 不提供 `tools/list`、`tools/call`、MCP resource 或 MCP App 代理路由；MCP tool discovery 和调用只发生在选中的 Agent runtime 内。
 - Queue runtime 暂不抽新 module；等第三个 queue consumer 或可替换 adapter 需求出现再抽。

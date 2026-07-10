@@ -8,7 +8,7 @@
 - 所有列表工具都有上限；最近查询固定在 30 天，任意时间窗由运行时校验为 ISO-8601 UTC 的 `[from, to)`，最长 31 天。
 - 所有工具只读；`TemplateEvent` payload 会原样返回的工具仅用于可信的内部运营 Agent，生产接入时仍需最小权限数据库角色。
 - 不使用 `templateParameters`，避免让模型控制表名、列名、排序字段或 SQL 结构。
-- 裸 MCP `tools/list` 默认可见服务端全部工具；Claude 与 Eve 分别在 `packages/agent-claude/src/mcp.ts` 和 `packages/agent-eve/agent/connections/toolbox.ts` 维护 runtime allowlist，因此新增 Tool 时必须同步更新两处。
+- 裸 MCP `tools/list` 默认可见服务端全部工具；Claude 与 Eve 分别在 `packages/agent-claude/agent/.claude/settings.json` 和 `packages/agent-eve/agent/connections/toolbox.ts` 维护 runtime allowlist，因此新增 Tool 时必须同步更新两处。
 
 ## 电商业务验证数据（主要路径）
 
@@ -22,6 +22,25 @@
 | `list-ecommerce-orders-in-window`       | 订单运营视图             | 时间窗 + 最大 100 行；无联系方式         |
 | `get-ecommerce-order-detail`            | 单订单与订单项核查       | 精确订单号                               |
 | `list-ecommerce-fulfillment-exceptions` | 已付款未履约订单         | 时间窗 + 最大 100 行                     |
+
+## 电商业务 Agent Skills
+
+Toolbox 官方的 `skills-generate` 会把自定义 Toolset 转换为 Agent Skill。项目在此基础上生成四个按业务任务拆分的 Skill，并同时接入 Eve 和 Claude Agent：
+
+| Skill                              | Toolbox Toolset                    | 业务用途                 |
+| ---------------------------------- | ---------------------------------- | ------------------------ |
+| `ecommerce-sales-analysis`         | `ecommerce_sales_analytics`        | 销售趋势、退款、渠道分析 |
+| `ecommerce-product-analysis`       | `ecommerce_product_analytics`      | 商品排行与选品分析       |
+| `ecommerce-order-operations`       | `ecommerce_order_operations`       | 订单查询与单据排障       |
+| `ecommerce-fulfillment-operations` | `ecommerce_fulfillment_operations` | 履约积压与异常订单       |
+
+本地重新生成：
+
+```bash
+pnpm --filter @agent-template/toolbox skills:generate
+```
+
+生成器使用锁定的 `@toolbox-sdk/server` 读取 [tools.yaml](./tools.yaml)，再把适配后的 `SKILL.md` 写入 `packages/agent-eve/agent/skills/` 和 `packages/agent-claude/agent/.claude/skills/`。Eve 使用 `toolbox__<tool>`，Claude 使用 `mcp__toolbox__<tool>`。Skill 只负责按需加载业务流程，实际执行由对应 Agent runtime 的 MCP connection 和 allowlist 管理；官方生成的数据库直连脚本不会进入 Agent 运行目录。
 
 ## 电商 MCP Docker 集成验证（仅显式要求时）
 
@@ -96,6 +115,7 @@ docker compose exec toolbox /toolbox --config /app/tools.yaml invoke list-agent-
 修改工具或 Skill 后，默认先执行纯本地验证：
 
 ```bash
+pnpm --filter @agent-template/toolbox skills:generate
 pnpm --filter @agent-template/shared test
 pnpm --filter @agent-template/agent-claude test
 pnpm --filter @agent-template/agent-eve test

@@ -7,9 +7,10 @@
 ## 能力边界
 
 - Toolbox server 是独立 Tool provider，不属于 Cloud 或 Eve Agent runtime。
-- `tools.yaml` 只定义 source、tool 和 toolset，不放业务运行时代码。
+- `tools.yaml` 只定义 source、tool 和 toolset；`src/` 只放从这些声明生成 runtime Skill 的 authoring CLI，不放业务运行时代码。
 - 生产 Agent 只使用 Claude/Eve runtime allowlist 显式允许的自定义 Tool，不使用 prebuilt generic tools。
-- 新增或删除 Tool 时同步更新 `packages/agent-claude/src/mcp.ts` 和 `packages/agent-eve/agent/connections/toolbox.ts`。
+- 新增或删除 Tool 时同步更新 `packages/agent-claude/agent/.claude/settings.json` 和 `packages/agent-eve/agent/connections/toolbox.ts`。
+- 跨 runtime 的 Skill 生成只由本 module 负责；Claude/Eve runtime 只持有各自生成产物。
 - 数据库连接信息通过环境变量注入，不能把密码写死在 `tools.yaml`。
 
 ## 不应该做
@@ -30,6 +31,10 @@
 ## 验证
 
 ```bash
+pnpm --filter @agent-template/toolbox skills:generate
+pnpm --filter @agent-template/toolbox lint
+pnpm --filter @agent-template/toolbox typecheck
+pnpm --filter @agent-template/toolbox test
 docker compose config
 docker compose up -d postgres toolbox
 pnpm db:migrate

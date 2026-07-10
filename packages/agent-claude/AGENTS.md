@@ -2,17 +2,20 @@
 
 ## 职责
 
-`packages/agent-claude` 是 Claude Agent SDK backed runtime，负责 Claude 配置解析和 SDK 懒加载。
+`packages/agent-claude` 是 Claude Agent SDK backed runtime；`agent/` 是独立、可提交的 Claude Code authored surface。
 
 ## 能力边界
 
 - `parseClaudeAgentConfig` 只读取 Claude runtime 相关环境变量。
 - `getClaudeAgentRuntimeStateFromEnv` 返回 API key 配置状态和模型。
 - `loadClaudeAgentSdk` 保持懒加载，避免无 key 时影响本地启动。
+- SDK `cwd` 固定指向 `agent/`，并只加载 project setting source；默认从运行目录向上定位 monorepo，可用 `CLAUDE_AGENT_ROOT` 显式覆盖部署路径。不要让生产 Agent 读取仓库根部的工程协作配置。
+- `agent/CLAUDE.md` 放每次会话加载的稳定指令；`agent/.claude/settings.json` 放权限和 project settings；`agent/.claude/skills/` 放按需加载的业务 Skill。
 - Kimi Code 通过 Anthropic-compatible env 接入：`ANTHROPIC_BASE_URL=https://api.kimi.com/coding/`、`ANTHROPIC_MODEL=kimi-for-coding`、`ANTHROPIC_API_KEY`。
 - 传给 Claude Agent SDK subprocess 的 `env` 必须合并 `process.env`，不要替换掉 `PATH`、`HOME` 等运行时变量。
-- Toolbox server 由 Claude runtime 在 `src/mcp.ts` 中直接配置为 HTTP MCP server；`TOOLBOX_URL` 只用于生成 SDK `mcpServers`，不下发给 Claude Code subprocess。
-- `src/mcp.ts` 同时维护 Claude 可发现、可调用的 Toolbox allowlist，并启用 `strictMcpConfig`，不要恢复根级 `.mcp.json` 或平台 registry。
+- Toolbox HTTP connection 放在 `agent/.mcp.json`；精确 Tool allowlist 放在 `agent/.claude/settings.json`。`TOOLBOX_URL` 由 runtime 规范化后以 `CLAUDE_TOOLBOX_MCP_URL` 注入 Claude subprocess。
+- 项目级业务 Skill 放在 `agent/.claude/skills/`；Claude Agent SDK 必须启用 project setting source 和 skills，Skill 调用 `mcp__toolbox__<tool>`。
+- 电商业务 Skill 由 `@agent-template/toolbox` authoring CLI 同步，不手工维护两份副本，也不安装官方生成的数据库直连脚本。
 
 ## 不应该做
 
@@ -21,7 +24,8 @@
 - 不写具体业务 prompt。
 - 不把 Kimi API Key 写入仓库。
 - 不把 PostgreSQL 连接信息放进 Claude runtime 配置；数据库权限留在 Toolbox server。
-- 不恢复项目级 `.mcp.json` / `.claude/settings.json` 作为 Toolbox 主路径；生产形态以 runtime-owned `src/mcp.ts` 为准。
+- 不在 `src/` 中重新维护 prompt、MCP server 或 Tool allowlist；这些配置属于 `agent/` authored surface。
+- 不在仓库根创建生产 Agent 的 `.claude/` 或 `CLAUDE.md`；根目录属于工程协作上下文。
 - 不凭记忆直接写 Claude Agent SDK API；以官方文档和已安装包类型为准。
 
 ## 官方参考

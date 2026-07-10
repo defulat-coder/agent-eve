@@ -16,6 +16,10 @@ _Avoid_: Job route, enqueue helper
 A selectable implementation of Agent behavior. The template may include multiple Agent runtimes, but a deployment chooses one through environment configuration.
 _Avoid_: Agent type, Agent mode
 
+**Agent authored surface**:
+A runtime-owned filesystem tree containing stable instructions, connections, permissions, and reusable skills interpreted by that runtime.
+_Avoid_: Runtime source code, platform Agent config
+
 **Agent run**:
 One execution of an Agent from a prompt through the selected Agent runtime. It may be started by Chat SSE or by a queued Agent job.
 _Avoid_: Agent work, job result
@@ -57,8 +61,8 @@ A connection owned by one Agent runtime that exposes an allowed subset of an ext
 _Avoid_: MCP Host, platform MCP registry
 
 **Claude Agent runtime**:
-A Claude Agent SDK backed Agent runtime.
-_Avoid_: Cloud runtime, Claude path
+A filesystem-first Claude Code project executed through Claude Agent SDK.
+_Avoid_: Cloud runtime, programmatic prompt wrapper
 
 **Eve Agent runtime**:
 A filesystem-first Agent runtime shaped by Eve's authored surface.

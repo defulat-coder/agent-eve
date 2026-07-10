@@ -66,20 +66,20 @@ apps/
   web/       Next.js + React + Tailwind CSS
   api/       Fastify HTTP API
   worker/    BullMQ 后台任务进程
-  toolbox/   MCP Toolbox tools.yaml
+  toolbox/   MCP Toolbox tools.yaml + Skill authoring CLI
 packages/
   ui/            shadcn/ui 风格共享组件
   db/            Prisma schema 和 Prisma Client
   logger/        Pino logger 封装
   agent/         Agent runtime 公共边界
-  agent-claude/  Cloud/Claude Agent SDK runtime
+  agent-claude/  Claude Agent SDK adapter + filesystem-authored surface
   agent-eve/     Eve runtime
   shared/        共享 Zod schema 和 TypeScript 类型
 ```
 
 `apps/toolbox/tools.yaml` 定义生产 Agent 可加载的数据库工具。默认 toolset 是 `agent_template_read_model`：保留 `TemplateEvent` 的只读运行观测，同时提供合成电商的日销售、渠道、商品排行、订单详情和履约异常查询。`pnpm db:seed` 会写入 96 个脱敏客户、24 个商品和 600 个确定性订单；完整的参数、索引和 MCP 验证命令见 [apps/toolbox/README.md](apps/toolbox/README.md)。prebuilt generic tools 仅用于开发期探索，不作为生产 Agent 默认能力。
 
-MCP 连接由各 Agent runtime 自己维护：Claude 的 HTTP MCP config 和 allowlist 位于 `packages/agent-claude/src/mcp.ts`，Eve 的 filesystem-first connection 和 allowlist 位于 `packages/agent-eve/agent/connections/toolbox.ts`。两者都从 `TOOLBOX_URL` 读取 endpoint；API 和 Web 不维护 MCP registry 或代理 tool/resource 请求。
+MCP 连接由各 Agent runtime 自己维护：Claude 使用 `packages/agent-claude/agent/.mcp.json` 和 `agent/.claude/settings.json`，Eve 使用 `packages/agent-eve/agent/connections/toolbox.ts`。Claude 的稳定指令位于 `agent/CLAUDE.md`，业务 Skill 位于 `agent/.claude/skills/`；两套 runtime 都从 `TOOLBOX_URL` 读取 endpoint，API 和 Web 不维护 MCP registry 或代理 tool/resource 请求。
 
 Kimi Code 通过 Anthropic-compatible 协议接入两套 Agent runtime：
 
