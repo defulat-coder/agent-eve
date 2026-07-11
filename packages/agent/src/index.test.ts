@@ -134,7 +134,13 @@ describe("Agent runtime selector", () => {
 
   it("passes opaque continuation and input responses to Claude", async () => {
     const continuation = { token: "opaque-token" };
-    const responses = [{ requestId: "request-1", optionId: "approve" }];
+    const responses = [
+      {
+        kind: "selected-option" as const,
+        requestId: "request-1",
+        optionId: "approve",
+      },
+    ];
 
     await expect(
       runAgent(

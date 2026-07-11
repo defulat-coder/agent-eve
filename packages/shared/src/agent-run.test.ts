@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AgentRunResultSchema } from "./agent-run";
+import { AgentRunInputSchema, AgentRunResultSchema } from "./agent-run";
 
 describe("AgentRunResultSchema", () => {
   it("accepts completed Agent runs with run events", () => {
@@ -44,42 +44,62 @@ describe("AgentRunResultSchema", () => {
     });
   });
 
-  it("accepts structured HITL responses with an opaque continuation", async () => {
-    const { AgentRunInputSchema } = await import("./agent-run");
-
+  it("accepts structured HITL responses with an opaque continuation", () => {
     expect(
       AgentRunInputSchema.parse({
         continuation: { token: "opaque-token" },
-        responses: [{ requestId: "request-1", optionId: "approve" }],
+        responses: [
+          {
+            kind: "selected-option",
+            requestId: "request-1",
+            optionId: "approve",
+          },
+        ],
       }),
     ).toEqual({
       continuation: { token: "opaque-token" },
-      responses: [{ requestId: "request-1", optionId: "approve" }],
+      responses: [
+        {
+          kind: "selected-option",
+          requestId: "request-1",
+          optionId: "approve",
+        },
+      ],
     });
     expect(() =>
       AgentRunInputSchema.parse({
-        responses: [{ requestId: "request-1", text: "yes" }],
+        responses: [{ kind: "text", requestId: "request-1", text: "yes" }],
       }),
     ).toThrow("require a continuation");
   });
 
-  it("accepts multi-select responses and rejects ambiguous response values", () => {
+  it("accepts multi-select responses and rejects legacy response shapes", () => {
     expect(
       AgentRunInputSchema.parse({
         continuation: { token: "opaque-token" },
-        responses: [{ requestId: "request-1", optionIds: ["a", "b"] }],
+        responses: [
+          {
+            kind: "selected-options",
+            requestId: "request-1",
+            optionIds: ["a", "b"],
+          },
+        ],
       }),
     ).toMatchObject({
-      responses: [{ requestId: "request-1", optionIds: ["a", "b"] }],
+      responses: [
+        {
+          kind: "selected-options",
+          requestId: "request-1",
+          optionIds: ["a", "b"],
+        },
+      ],
     });
 
     expect(() =>
       AgentRunInputSchema.parse({
         continuation: { token: "opaque-token" },
-        responses: [
-          { requestId: "request-1", optionId: "a", text: "ambiguous" },
-        ],
+        responses: [{ requestId: "request-1", optionId: "a" }],
       }),
-    ).toThrow("only one response value");
+    ).toThrow();
   });
 });

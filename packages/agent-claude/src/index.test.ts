@@ -354,7 +354,13 @@ describe("Claude Agent runtime", () => {
     const secondRun = await runClaudeAgent(
       {
         continuation: firstRun.continuation,
-        responses: [{ requestId: "tool-1:0", optionId: "1" }],
+        responses: [
+          {
+            kind: "selected-option",
+            requestId: "tool-1:0",
+            optionId: "1",
+          },
+        ],
       },
       {
         authToken: "test-token",

@@ -338,7 +338,13 @@ describe("Eve Agent runtime", () => {
       runEveAgent(
         {
           continuation: encodeEveContinuation(priorSession),
-          responses: [{ requestId: "request-0", optionId: "approve" }],
+          responses: [
+            {
+              kind: "selected-option",
+              requestId: "request-0",
+              optionId: "approve",
+            },
+          ],
         },
         parseEveAgentConfig({ EVE_AGENT_HOST: "http://127.0.0.1:13010" }),
         {

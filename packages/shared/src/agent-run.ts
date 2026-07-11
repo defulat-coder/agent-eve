@@ -5,27 +5,23 @@ export const AgentContinuationSchema = z.object({
   token: z.string().min(1),
 });
 
-export const AgentInputResponseSchema = z
-  .object({
+export const AgentInputResponseSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("selected-option"),
     requestId: z.string().min(1),
-    optionId: z.string().min(1).optional(),
-    optionIds: z.array(z.string().min(1)).min(1).optional(),
-    text: z.string().min(1).optional(),
-  })
-  .refine(
-    (response) => response.optionId || response.optionIds || response.text,
-    {
-      message: "An Agent input response requires optionId, optionIds or text",
-    },
-  )
-  .refine(
-    (response) =>
-      [response.optionId, response.optionIds, response.text].filter(Boolean)
-        .length === 1,
-    {
-      message: "An Agent input response accepts only one response value",
-    },
-  );
+    optionId: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal("selected-options"),
+    requestId: z.string().min(1),
+    optionIds: z.array(z.string().min(1)).min(1),
+  }),
+  z.object({
+    kind: z.literal("text"),
+    requestId: z.string().min(1),
+    text: z.string().min(1),
+  }),
+]);
 
 export const AgentRunInputSchema = z
   .object({

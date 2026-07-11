@@ -38,7 +38,13 @@ describe("Claude runtime hooks", () => {
         pendingToolUseId: "tool-1",
         sessionId: "session-1",
       },
-      responses: [{ requestId: "tool-1:0", optionId: "0" }],
+      responses: [
+        {
+          kind: "selected-option",
+          requestId: "tool-1:0",
+          optionId: "0",
+        },
+      ],
       onAudit: vi.fn(),
     });
     const callback = hooks.PreToolUse?.[0]?.hooks[0];

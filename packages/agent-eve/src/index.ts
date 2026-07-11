@@ -19,6 +19,7 @@ import {
   projectEveStreamEvent,
   projectEveTurn,
 } from "./eve-turn-projection.js";
+import { toEveInputResponses } from "./eve-input-responses.js";
 import { isLoopbackEveHost } from "./trust-policy.js";
 
 export const eveAgentDirectory = "packages/agent-eve/agent";
@@ -172,11 +173,12 @@ export async function runEveAgent(
   let response: EveMessageResponse | undefined;
 
   try {
+    const inputResponses = input.responses
+      ? toEveInputResponses(input.responses)
+      : undefined;
     response = await session.send({
       ...(input.prompt ? { message: input.prompt } : {}),
-      ...(input.responses
-        ? { inputResponses: input.responses as readonly InputResponse[] }
-        : {}),
+      ...(inputResponses ? { inputResponses } : {}),
       signal: controller.signal,
     });
 

@@ -210,12 +210,24 @@ function InputRequestPanel({
         throw new Error(`Missing input response for ${request.requestId}`);
       }
       if (draft.text.trim()) {
-        return { requestId: request.requestId, text: draft.text.trim() };
+        return {
+          kind: "text",
+          requestId: request.requestId,
+          text: draft.text.trim(),
+        };
       }
       if (request.multiSelect) {
-        return { requestId: request.requestId, optionIds: draft.optionIds };
+        return {
+          kind: "selected-options",
+          requestId: request.requestId,
+          optionIds: draft.optionIds,
+        };
       }
-      return { requestId: request.requestId, optionId: draft.optionIds[0] };
+      return {
+        kind: "selected-option",
+        requestId: request.requestId,
+        optionId: draft.optionIds[0],
+      };
     });
     void onInputResponses?.(responses);
   }

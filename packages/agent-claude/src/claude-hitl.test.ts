@@ -38,7 +38,11 @@ describe("Claude HITL projection", () => {
   it("maps platform option ids back to Claude question labels", () => {
     expect(
       answerClaudeInputRequest("tool-1", input, [
-        { requestId: "tool-1:0", optionId: "1" },
+        {
+          kind: "selected-option",
+          requestId: "tool-1:0",
+          optionId: "1",
+        },
       ]),
     ).toEqual({
       questions: input.questions,
@@ -66,7 +70,11 @@ describe("Claude HITL projection", () => {
     });
     expect(
       answerClaudeInputRequest("tool-2", multiSelectInput, [
-        { requestId: "tool-2:0", optionIds: ["0", "1"] },
+        {
+          kind: "selected-options",
+          requestId: "tool-2:0",
+          optionIds: ["0", "1"],
+        },
       ]),
     ).toMatchObject({ answers: { "选择渠道？": "Web, 门店" } });
   });

@@ -58,40 +58,39 @@ export function answerClaudeInputRequest(
       return undefined;
     }
 
-    if (response.text) {
-      answers[question.question] = response.text;
-      continue;
+    switch (response.kind) {
+      case "text":
+        answers[question.question] = response.text;
+        break;
+      case "selected-options":
+        answers[question.question] = response.optionIds
+          .map((id) => readOptionLabel(question.options, id, response.requestId))
+          .join(", ");
+        break;
+      case "selected-option":
+        answers[question.question] = readOptionLabel(
+          question.options,
+          response.optionId,
+          response.requestId,
+        );
+        break;
     }
-
-    if (response.optionIds) {
-      const labels = response.optionIds.map((id) => {
-        const optionIndex = Number(id);
-        const option = Number.isInteger(optionIndex)
-          ? question.options[optionIndex]
-          : undefined;
-        if (!option) {
-          throw new Error(
-            `Invalid response for Claude input request ${response.requestId}`,
-          );
-        }
-        return option.label;
-      });
-      answers[question.question] = labels.join(", ");
-      continue;
-    }
-
-    const optionIndex = Number(response.optionId);
-    const option = Number.isInteger(optionIndex)
-      ? question.options[optionIndex]
-      : undefined;
-    if (!option) {
-      throw new Error(`Invalid response for Claude input request ${response.requestId}`);
-    }
-
-    answers[question.question] = option.label;
   }
 
   return { questions: parsed.questions, answers };
+}
+
+function readOptionLabel(
+  options: readonly { label: string }[],
+  id: string,
+  requestId: string,
+) {
+  const optionIndex = Number(id);
+  const option = Number.isInteger(optionIndex) ? options[optionIndex] : undefined;
+  if (!option) {
+    throw new Error(`Invalid response for Claude input request ${requestId}`);
+  }
+  return option.label;
 }
 
 function createRequestId(toolUseId: string, questionIndex: number) {
