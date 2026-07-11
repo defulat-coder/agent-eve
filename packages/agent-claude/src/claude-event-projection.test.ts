@@ -25,7 +25,7 @@ describe("Claude event projection", () => {
       } as unknown as SDKMessage),
     ).toEqual([
       {
-        input: '{"limit":3}',
+        input: '{"fields":["limit"]}',
         kind: "tool-call",
         tool: "mcp__toolbox__list-agent-runs",
       },

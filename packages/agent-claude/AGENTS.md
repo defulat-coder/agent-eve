@@ -17,6 +17,7 @@
 - `AskUserQuestion` 使用 `PreToolUse` defer/resume；不要用常驻 Promise 等待 Web 用户，也不要把 SDK session ID 发给客户端。
 - `CLAUDE_AGENT_MAX_TURNS`、`CLAUDE_AGENT_MAX_BUDGET_USD` 和 `CLAUDE_AGENT_REQUEST_TIMEOUT_MS` 必须保留 fail-closed 上限。
 - programmatic hooks 只记录 lifecycle metadata，不记录 prompt、Tool input/output 或客户数据。
+- `ClaudeEventProjection` 必须通过 Tool event policy 输出 input 摘要；未知 Tool 默认 `[redacted]`。
 - Kimi Code 通过 Anthropic-compatible env 接入：`ANTHROPIC_BASE_URL=https://api.kimi.com/coding/`、`ANTHROPIC_MODEL=kimi-for-coding`、`ANTHROPIC_API_KEY`。
 - 传给 Claude Agent SDK subprocess 的 `env` 必须合并 `process.env`，不要替换掉 `PATH`、`HOME` 等运行时变量。
 - Toolbox HTTP connection 放在 `agent/.mcp.json`；精确 Tool allowlist 放在 `agent/.claude/settings.json`。`TOOLBOX_URL` 由 runtime 规范化后以 `CLAUDE_TOOLBOX_MCP_URL` 注入 Claude subprocess。

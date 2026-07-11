@@ -10,6 +10,7 @@
 - continuation 通过 Redis 原子 lease 防止跨 replica 并发与重放，完成后轮换新 token。
 - `AskUserQuestion` 使用官方 `PreToolUse: defer` 流程退出当前进程，经 Web 收集结构化回答后 `resume` 原 session。
 - SDK message 被投影为统一的 Tool、HITL、Subagent、Compaction、Usage 和错误事件。
+- Tool event 使用 fail-closed 脱敏策略：Toolbox 只展示字段名，未知 Tool 隐藏全部 input。
 - lifecycle audit 只记录事件、session、Tool 名称和 Tool use ID，不记录 prompt、Tool input 或 output。
 
 ## 运行配置

@@ -249,7 +249,7 @@ describe("Claude Agent runtime", () => {
     ).resolves.toMatchObject({
       events: [
         {
-          input: '{"limit":3}',
+          input: '{"fields":["limit"]}',
           kind: "tool-call",
           tool: "mcp__toolbox__list-agent-runs",
         },

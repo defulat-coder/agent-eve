@@ -1,5 +1,6 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentRunEvent } from "@agent-template/shared";
+import { summarizeClaudeToolInput } from "./claude-tool-event-policy.js";
 
 const partialTextEventMinDelta = 200;
 
@@ -80,7 +81,7 @@ export class ClaudeEventProjection {
         events.push({
           kind: "tool-call",
           tool: item.name,
-          input: JSON.stringify(item.input ?? {}),
+          input: summarizeClaudeToolInput(item.name, item.input),
         });
       }
     }
