@@ -11,6 +11,11 @@
 - `loadClaudeAgentSdk` 保持懒加载，避免无 key 时影响本地启动。
 - SDK `cwd` 固定指向 `agent/`，并只加载 project setting source；默认从运行目录向上定位 monorepo，可用 `CLAUDE_AGENT_ROOT` 显式覆盖部署路径。不要让生产 Agent 读取仓库根部的工程协作配置。
 - `agent/CLAUDE.md` 放每次会话加载的稳定指令；`agent/.claude/settings.json` 放权限和 project settings；`agent/.claude/skills/` 放按需加载的业务 Skill。
+- `CLAUDE_AGENT_STATE_DIR` 保存可续接 transcript；生产部署必须使用 API replica 共享的持久存储，并限制目录权限。
+- 公共 `AgentContinuation` 只携带签名 token；Claude session ID、deferred Tool ID 和签名细节留在 adapter 内。
+- `AskUserQuestion` 使用 `PreToolUse` defer/resume；不要用常驻 Promise 等待 Web 用户，也不要把 SDK session ID 发给客户端。
+- `CLAUDE_AGENT_MAX_TURNS`、`CLAUDE_AGENT_MAX_BUDGET_USD` 和 `CLAUDE_AGENT_REQUEST_TIMEOUT_MS` 必须保留 fail-closed 上限。
+- programmatic hooks 只记录 lifecycle metadata，不记录 prompt、Tool input/output 或客户数据。
 - Kimi Code 通过 Anthropic-compatible env 接入：`ANTHROPIC_BASE_URL=https://api.kimi.com/coding/`、`ANTHROPIC_MODEL=kimi-for-coding`、`ANTHROPIC_API_KEY`。
 - 传给 Claude Agent SDK subprocess 的 `env` 必须合并 `process.env`，不要替换掉 `PATH`、`HOME` 等运行时变量。
 - Toolbox HTTP connection 放在 `agent/.mcp.json`；精确 Tool allowlist 放在 `agent/.claude/settings.json`。`TOOLBOX_URL` 由 runtime 规范化后以 `CLAUDE_TOOLBOX_MCP_URL` 注入 Claude subprocess。
@@ -25,6 +30,7 @@
 - 不把 Kimi API Key 写入仓库。
 - 不把 PostgreSQL 连接信息放进 Claude runtime 配置；数据库权限留在 Toolbox server。
 - 不在 `src/` 中重新维护 prompt、MCP server 或 Tool allowlist；这些配置属于 `agent/` authored surface。
+- 不使用 `bypassPermissions`；新增内建 Tool 时同时更新 `tools`、project allow/deny 和安全 Eval。
 - 不在仓库根创建生产 Agent 的 `.claude/` 或 `CLAUDE.md`；根目录属于工程协作上下文。
 - 不凭记忆直接写 Claude Agent SDK API；以官方文档和已安装包类型为准。
 

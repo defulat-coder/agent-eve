@@ -1,9 +1,13 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "cleanupPeriodDays": 30,
   "disableClaudeAiConnectors": true,
-  "enableAllProjectMcpServers": true,
+  "disableSkillShellExecution": true,
+  "enableAllProjectMcpServers": false,
+  "enabledMcpjsonServers": ["toolbox"],
   "permissions": {
     "allow": [
+      "AskUserQuestion",
       "mcp__toolbox__get-agent-run-summary",
       "mcp__toolbox__get-ecommerce-order-detail",
       "mcp__toolbox__get-template-event",
@@ -19,6 +23,20 @@
       "mcp__toolbox__summarize-ecommerce-sales-by-day",
       "mcp__toolbox__summarize-template-events-by-type",
       "mcp__toolbox__summarize-tool-invocations"
+    ],
+    "defaultMode": "dontAsk",
+    "deny": [
+      "Agent",
+      "Bash",
+      "Edit",
+      "Glob",
+      "Grep",
+      "NotebookEdit",
+      "Read",
+      "Task",
+      "WebFetch",
+      "WebSearch",
+      "Write"
     ]
   }
 }

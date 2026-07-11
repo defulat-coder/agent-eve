@@ -75,10 +75,26 @@ describe("Claude filesystem-authored surface", () => {
       },
     });
     expect(settings).toMatchObject({
+      cleanupPeriodDays: 30,
       disableClaudeAiConnectors: true,
-      enableAllProjectMcpServers: true,
+      disableSkillShellExecution: true,
+      enableAllProjectMcpServers: false,
+      enabledMcpjsonServers: ["toolbox"],
       permissions: {
-        allow: expectedToolboxTools.map((name) => `mcp__toolbox__${name}`),
+        allow: [
+          "AskUserQuestion",
+          ...expectedToolboxTools.map((name) => `mcp__toolbox__${name}`),
+        ],
+        defaultMode: "dontAsk",
+        deny: expect.arrayContaining([
+          "Agent",
+          "Bash",
+          "Edit",
+          "Read",
+          "WebFetch",
+          "WebSearch",
+          "Write",
+        ]),
       },
     });
   });
@@ -91,7 +107,8 @@ describe("Claude filesystem-authored surface", () => {
 
     expect(instructions).toContain("用户可见回复默认使用中文");
     expect(instructions).toContain("只读 Tool");
-    expect(instructions).toContain("优先加载匹配的项目 Skill");
+    expect(instructions).toContain("加载最匹配的项目 Skill");
+    expect(instructions).toContain("选项互斥");
   });
 });
 

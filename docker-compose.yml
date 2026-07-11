@@ -11,6 +11,12 @@ x-runtime-environment: &runtime-environment
   ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.kimi.com/coding/}
   ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-kimi-for-coding}
   CLAUDE_AGENT_MODEL: ${CLAUDE_AGENT_MODEL:-kimi-for-coding}
+  CLAUDE_AGENT_STATE_DIR: ${CLAUDE_AGENT_STATE_DIR:-/var/lib/agent-template/claude}
+  CLAUDE_AGENT_CONTINUATION_SECRET: ${CLAUDE_AGENT_CONTINUATION_SECRET:-}
+  CLAUDE_AGENT_CONTINUATION_TTL_MS: ${CLAUDE_AGENT_CONTINUATION_TTL_MS:-604800000}
+  CLAUDE_AGENT_MAX_TURNS: ${CLAUDE_AGENT_MAX_TURNS:-100}
+  CLAUDE_AGENT_MAX_BUDGET_USD: ${CLAUDE_AGENT_MAX_BUDGET_USD:-5}
+  CLAUDE_AGENT_REQUEST_TIMEOUT_MS: ${CLAUDE_AGENT_REQUEST_TIMEOUT_MS:-120000}
   EVE_AGENT_HOST: ${EVE_AGENT_HOST:-http://eve-agent:13010}
   EVE_AGENT_MAX_RECONNECT_ATTEMPTS: ${EVE_AGENT_MAX_RECONNECT_ATTEMPTS:-5}
   EVE_AGENT_MODEL: ${EVE_AGENT_MODEL:-kimi-for-coding}
@@ -113,6 +119,8 @@ services:
         condition: service_healthy
     ports:
       - "14000:14000"
+    volumes:
+      - claude_state:/var/lib/agent-template/claude
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:14000/health >/dev/null"]
       interval: 10s
@@ -133,6 +141,8 @@ services:
         condition: service_started
       eve-agent:
         condition: service_healthy
+    volumes:
+      - claude_state:/var/lib/agent-template/claude
 
   eve-agent:
     <<: *app-service
@@ -171,5 +181,6 @@ services:
       - "13000:13000"
 
 volumes:
+  claude_state:
   postgres_data:
   redis_data:

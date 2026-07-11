@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type {
   AgentArtifact,
+  AgentInputRequest,
   AgentInputResponse,
   AgentRunEvent,
 } from "@agent-template/shared";
@@ -10,11 +11,11 @@ import type {
 export function AgentRunTimeline({
   disabled,
   events,
-  onInputResponse,
+  onInputResponses,
 }: {
   disabled?: boolean;
   events: AgentRunEvent[];
-  onInputResponse?: (response: AgentInputResponse) => void | Promise<void>;
+  onInputResponses?: (responses: AgentInputResponse[]) => void | Promise<void>;
 }) {
   return (
     <section className="rounded-md border border-slate-200 bg-white p-4">
@@ -32,7 +33,7 @@ export function AgentRunTimeline({
               disabled={disabled}
               event={event}
               key={`${event.kind}-${index}`}
-              onInputResponse={onInputResponse}
+              onInputResponses={onInputResponses}
             />
           ))}
         </div>
@@ -48,11 +49,11 @@ export function AgentRunTimeline({
 function AgentRunEventRow({
   disabled,
   event,
-  onInputResponse,
+  onInputResponses,
 }: {
   disabled?: boolean;
   event: AgentRunEvent;
-  onInputResponse?: (response: AgentInputResponse) => void | Promise<void>;
+  onInputResponses?: (responses: AgentInputResponse[]) => void | Promise<void>;
 }) {
   if (event.kind === "tool-call") {
     return (
@@ -95,43 +96,11 @@ function AgentRunEventRow({
 
   if (event.kind === "input-requested") {
     return (
-      <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-950">
-        <div className="font-medium">等待人工输入</div>
-        <div className="mt-3 flex flex-col gap-3">
-          {event.requests.map((request) => (
-            <div className="flex flex-col gap-2" key={request.requestId}>
-              <p>{request.prompt}</p>
-              {request.options?.length ? (
-                <div className="flex flex-wrap gap-2">
-                  {request.options.map((option) => (
-                    <button
-                      className={
-                        option.style === "danger"
-                          ? "rounded-md bg-red-700 px-3 py-1.5 text-white disabled:opacity-50"
-                          : "rounded-md bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50"
-                      }
-                      disabled={disabled || !onInputResponse}
-                      key={option.id}
-                      onClick={() =>
-                        void onInputResponse?.({
-                          requestId: request.requestId,
-                          optionId: option.id,
-                        })
-                      }
-                      title={option.description}
-                      type="button"
-                    >
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-blue-700">请在上方输入框中回复。</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+      <InputRequestPanel
+        disabled={disabled}
+        onInputResponses={onInputResponses}
+        requests={event.requests}
+      />
     );
   }
 
@@ -185,7 +154,7 @@ function AgentRunEventRow({
   }
 
   if (event.kind === "waiting") {
-    return <LogRow label="Eve 会话等待下一条消息" tone="blue" />;
+    return <LogRow label="Agent 会话等待下一条消息" tone="blue" />;
   }
 
   if (event.kind === "artifacts") {
@@ -193,6 +162,127 @@ function AgentRunEventRow({
   }
 
   return <LogRow label="Unknown event">{event.text}</LogRow>;
+}
+
+type InputDraft = { optionIds: string[]; text: string };
+
+function InputRequestPanel({
+  disabled,
+  onInputResponses,
+  requests,
+}: {
+  disabled?: boolean;
+  onInputResponses?: (responses: AgentInputResponse[]) => void | Promise<void>;
+  requests: AgentInputRequest[];
+}) {
+  const [drafts, setDrafts] = useState<Record<string, InputDraft>>({});
+  const canSubmit = requests.every((request) => {
+    const draft = drafts[request.requestId];
+    return Boolean(draft?.text.trim() || draft?.optionIds.length);
+  });
+
+  function selectOption(request: AgentInputRequest, optionId: string) {
+    setDrafts((current) => {
+      const draft = current[request.requestId] ?? { optionIds: [], text: "" };
+      const optionIds = request.multiSelect
+        ? draft.optionIds.includes(optionId)
+          ? draft.optionIds.filter((id) => id !== optionId)
+          : [...draft.optionIds, optionId]
+        : [optionId];
+      return {
+        ...current,
+        [request.requestId]: { optionIds, text: "" },
+      };
+    });
+  }
+
+  function setFreeform(requestId: string, text: string) {
+    setDrafts((current) => ({
+      ...current,
+      [requestId]: { optionIds: [], text },
+    }));
+  }
+
+  function submitResponses() {
+    const responses = requests.map((request): AgentInputResponse => {
+      const draft = drafts[request.requestId];
+      if (!draft) {
+        throw new Error(`Missing input response for ${request.requestId}`);
+      }
+      if (draft.text.trim()) {
+        return { requestId: request.requestId, text: draft.text.trim() };
+      }
+      if (request.multiSelect) {
+        return { requestId: request.requestId, optionIds: draft.optionIds };
+      }
+      return { requestId: request.requestId, optionId: draft.optionIds[0] };
+    });
+    void onInputResponses?.(responses);
+  }
+
+  return (
+    <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-950">
+      <div className="font-medium">等待人工输入</div>
+      <div className="mt-3 flex flex-col gap-4">
+        {requests.map((request) => {
+          const draft = drafts[request.requestId] ?? {
+            optionIds: [],
+            text: "",
+          };
+          return (
+            <div className="flex flex-col gap-2" key={request.requestId}>
+              <p>{request.prompt}</p>
+              {request.options?.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {request.options.map((option) => {
+                    const selected = draft.optionIds.includes(option.id);
+                    return (
+                      <button
+                        aria-pressed={selected}
+                        className={
+                          option.style === "danger"
+                            ? "rounded-md bg-red-700 px-3 py-1.5 text-white disabled:opacity-50"
+                            : selected
+                              ? "rounded-md bg-blue-950 px-3 py-1.5 text-white disabled:opacity-50"
+                              : "rounded-md bg-blue-700 px-3 py-1.5 text-white disabled:opacity-50"
+                        }
+                        disabled={disabled || !onInputResponses}
+                        key={option.id}
+                        onClick={() => selectOption(request, option.id)}
+                        title={option.description}
+                        type="button"
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              {request.allowFreeform ? (
+                <input
+                  className="rounded-md border border-blue-200 bg-white px-3 py-2 text-sm text-slate-950"
+                  disabled={disabled || !onInputResponses}
+                  onChange={(event) =>
+                    setFreeform(request.requestId, event.target.value)
+                  }
+                  placeholder="或输入自定义回答"
+                  value={draft.text}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+        <button
+          className="w-fit rounded-md bg-blue-950 px-3 py-1.5 text-white disabled:opacity-50"
+          disabled={disabled || !onInputResponses || !canSubmit}
+          onClick={submitResponses}
+          type="button"
+        >
+          提交回答
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function LogRow({

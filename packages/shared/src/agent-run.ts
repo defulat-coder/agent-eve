@@ -9,11 +9,23 @@ export const AgentInputResponseSchema = z
   .object({
     requestId: z.string().min(1),
     optionId: z.string().min(1).optional(),
+    optionIds: z.array(z.string().min(1)).min(1).optional(),
     text: z.string().min(1).optional(),
   })
-  .refine((response) => response.optionId || response.text, {
-    message: "An Agent input response requires optionId or text",
-  });
+  .refine(
+    (response) => response.optionId || response.optionIds || response.text,
+    {
+      message: "An Agent input response requires optionId, optionIds or text",
+    },
+  )
+  .refine(
+    (response) =>
+      [response.optionId, response.optionIds, response.text].filter(Boolean)
+        .length === 1,
+    {
+      message: "An Agent input response accepts only one response value",
+    },
+  );
 
 export const AgentRunInputSchema = z
   .object({

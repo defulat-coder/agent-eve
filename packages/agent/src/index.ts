@@ -30,7 +30,21 @@ export const AgentRuntimeEnvSchema = z.object({
   ANTHROPIC_AUTH_TOKEN: z.string().optional(),
   ANTHROPIC_BASE_URL: z.string().url().optional(),
   ANTHROPIC_MODEL: z.string().default(defaultClaudeAgentModel),
+  CLAUDE_AGENT_CONTINUATION_SECRET: z.string().optional(),
+  CLAUDE_AGENT_CONTINUATION_TTL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional(),
+  CLAUDE_AGENT_MAX_BUDGET_USD: z.coerce.number().positive().optional(),
+  CLAUDE_AGENT_MAX_TURNS: z.coerce.number().int().positive().optional(),
   CLAUDE_AGENT_MODEL: z.string().default(defaultClaudeAgentModel),
+  CLAUDE_AGENT_REQUEST_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional(),
+  CLAUDE_AGENT_STATE_DIR: z.string().optional(),
   EVE_AGENT_HOST: z.string().optional(),
   EVE_AGENT_MAX_RECONNECT_ATTEMPTS: z.coerce
     .number()
@@ -102,16 +116,8 @@ export async function runAgent(
       eventOptions,
     );
   } else {
-    if (parsed.continuation || parsed.responses) {
-      throw new Error(
-        "The selected Agent runtime does not support continuation or input responses",
-      );
-    }
-    if (!parsed.prompt) {
-      throw new Error("The selected Agent runtime requires a prompt");
-    }
     run = await (options.runClaude ?? runClaudeAgent)(
-      { prompt: parsed.prompt },
+      parsed,
       parseClaudeAgentConfig(runtimeEnv),
       eventOptions,
     );

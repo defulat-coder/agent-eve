@@ -1,16 +1,44 @@
-import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { chmodSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { z } from "zod";
-import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
-import type { AgentRunEvent } from "@agent-template/shared";
+import type {
+  Options as ClaudeSdkOptions,
+  SDKMessage,
+} from "@anthropic-ai/claude-agent-sdk";
+import { createLogger } from "@agent-template/logger";
+import type {
+  AgentContinuation,
+  AgentInputResponse,
+  AgentRunEvent,
+} from "@agent-template/shared";
 import { resolveClaudeAgentRoot } from "./authored-surface.js";
+import {
+  decodeClaudeContinuation,
+  encodeClaudeContinuation,
+  type ClaudeContinuationPayload,
+} from "./claude-continuation.js";
+import { ClaudeEventProjection } from "./claude-event-projection.js";
+import { projectClaudeInputRequests } from "./claude-hitl.js";
+import {
+  createClaudeRuntimeHooks,
+  type ClaudeAuditEvent,
+} from "./claude-runtime-hooks.js";
 
 export const defaultClaudeAgentModel = "kimi-for-coding";
 export const defaultAnthropicBaseUrl = "https://api.kimi.com/coding/";
 export const defaultClaudeAgentMaxTurns = 100;
+export const defaultClaudeAgentMaxBudgetUsd = 5;
+export const defaultClaudeAgentRequestTimeoutMs = 120_000;
+export const defaultClaudeContinuationTtlMs = 7 * 24 * 60 * 60 * 1_000;
+export const defaultClaudeAutoCompactWindow = 262_144;
 export const defaultClaudeToolboxUrl = "http://localhost:15000";
-const partialTextEventMinDelta = 200;
+export const defaultClaudeAgentStateDirectory = join(
+  tmpdir(),
+  "agent-template-claude-code",
+);
+
+const logger = createLogger({ service: "agent-claude" });
 
 export const ClaudeAgentConfigSchema = z.object({
   apiKey: z.string().min(1).optional(),
@@ -19,9 +47,39 @@ export const ClaudeAgentConfigSchema = z.object({
   model: z.string().min(1).default(defaultClaudeAgentModel),
   agentRoot: z.string().min(1).optional(),
   toolboxUrl: z.string().url().optional(),
+  stateDirectory: z
+    .string()
+    .min(1)
+    .default(defaultClaudeAgentStateDirectory),
+  continuationSecret: z.string().min(32).optional(),
+  continuationTtlMs: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(defaultClaudeContinuationTtlMs),
+  maxTurns: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(defaultClaudeAgentMaxTurns),
+  maxBudgetUsd: z.coerce
+    .number()
+    .positive()
+    .default(defaultClaudeAgentMaxBudgetUsd),
+  requestTimeoutMs: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(defaultClaudeAgentRequestTimeoutMs),
+  autoCompactWindow: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(defaultClaudeAutoCompactWindow),
 });
 
-export type ClaudeAgentConfig = z.infer<typeof ClaudeAgentConfigSchema>;
+export type ClaudeAgentConfig = z.input<typeof ClaudeAgentConfigSchema>;
+type ResolvedClaudeAgentConfig = z.output<typeof ClaudeAgentConfigSchema>;
 
 export type ClaudeAgentRuntimeState = {
   configured: boolean;
@@ -29,30 +87,31 @@ export type ClaudeAgentRuntimeState = {
 };
 
 export type ClaudeAgentRunInput = {
-  prompt: string;
+  prompt?: string | undefined;
+  continuation?: AgentContinuation | undefined;
+  responses?: AgentInputResponse[] | undefined;
 };
 
 export type ClaudeAgentRunResult =
+  | { status: "skipped"; reason: string }
   | {
-      status: "skipped";
-      reason: string;
-    }
-  | {
-      status: "completed";
+      status: "completed" | "waiting";
       events: AgentRunEvent[];
       output: string;
-      sessionId?: string;
+      sessionId: string;
+      continuation?: AgentContinuation;
     }
   | {
       status: "failed";
       events: AgentRunEvent[];
       reason: string;
       sessionId?: string;
+      continuation?: AgentContinuation;
     };
 
 export function parseClaudeAgentConfig(
   input: Record<string, unknown>,
-): ClaudeAgentConfig {
+): ResolvedClaudeAgentConfig {
   return ClaudeAgentConfigSchema.parse({
     apiKey: input.ANTHROPIC_API_KEY || undefined,
     authToken: input.ANTHROPIC_AUTH_TOKEN || undefined,
@@ -60,12 +119,20 @@ export function parseClaudeAgentConfig(
     model: input.CLAUDE_AGENT_MODEL || input.ANTHROPIC_MODEL || undefined,
     agentRoot: input.CLAUDE_AGENT_ROOT || undefined,
     toolboxUrl: input.TOOLBOX_URL || undefined,
+    stateDirectory: input.CLAUDE_AGENT_STATE_DIR || undefined,
+    continuationSecret: input.CLAUDE_AGENT_CONTINUATION_SECRET || undefined,
+    continuationTtlMs: input.CLAUDE_AGENT_CONTINUATION_TTL_MS || undefined,
+    maxTurns: input.CLAUDE_AGENT_MAX_TURNS || undefined,
+    maxBudgetUsd: input.CLAUDE_AGENT_MAX_BUDGET_USD || undefined,
+    requestTimeoutMs: input.CLAUDE_AGENT_REQUEST_TIMEOUT_MS || undefined,
+    autoCompactWindow: input.CLAUDE_CODE_AUTO_COMPACT_WINDOW || undefined,
   });
 }
 
 export function getClaudeAgentRuntimeState(
-  config: ClaudeAgentConfig,
+  input: ClaudeAgentConfig,
 ): ClaudeAgentRuntimeState {
+  const config = ClaudeAgentConfigSchema.parse(input);
   return {
     configured: Boolean(config.apiKey || config.authToken),
     model: config.model,
@@ -85,18 +152,23 @@ export async function loadClaudeAgentSdk() {
 type ClaudeAgentSdk = {
   query(input: {
     prompt: string;
-    options?: Record<string, unknown>;
+    options?: ClaudeSdkOptions;
   }): AsyncIterable<SDKMessage>;
 };
 
 export async function runClaudeAgent(
   input: ClaudeAgentRunInput,
-  config: ClaudeAgentConfig,
-  options: {
+  unresolvedConfig: ClaudeAgentConfig,
+  runOptions: {
     loadSdk?: () => Promise<ClaudeAgentSdk>;
+    onAudit?: (event: ClaudeAuditEvent) => void;
     onEvent?: (event: AgentRunEvent) => void;
   } = {},
 ): Promise<ClaudeAgentRunResult> {
+  const config = ClaudeAgentConfigSchema.parse(unresolvedConfig);
+  const continuationSecret =
+    config.continuationSecret ?? config.authToken ?? config.apiKey;
+
   if (!config.apiKey && !config.authToken) {
     return {
       status: "skipped",
@@ -104,86 +176,110 @@ export async function runClaudeAgent(
     };
   }
 
-  const sdk = await (options.loadSdk ?? loadClaudeAgentSdk)();
-  const runEvents: AgentRunEvent[] = [];
-  let result: Extract<SDKMessage, { type: "result" }> | undefined;
-  let sessionId: string | undefined;
-  let partialText = "";
-  let lastPartialTextEventLength = 0;
-
-  for await (const message of sdk.query({
-    prompt: input.prompt,
-    options: {
-      env: createClaudeAgentSubprocessEnv(config),
-      cwd: resolveClaudeAgentRoot(config.agentRoot),
-      maxTurns: defaultClaudeAgentMaxTurns,
-      permissionMode: "dontAsk",
-      persistSession: false,
-      settingSources: ["project"],
-      skills: "all",
-      systemPrompt: { type: "preset", preset: "claude_code" },
-      tools: [],
-      includePartialMessages: true,
-      ...(!config.baseUrl ? { model: config.model } : {}),
-    },
-  })) {
-    if ("session_id" in message) {
-      sessionId = message.session_id;
-    }
-
-    const progressEvents = formatClaudeAgentProgressEvent(message);
-
-    if (isClaudePartialTextStart(message)) {
-      partialText = "";
-      lastPartialTextEventLength = 0;
-    }
-
-    const partialTextDelta = readClaudePartialTextDelta(message);
-
-    if (partialTextDelta !== undefined) {
-      partialText += partialTextDelta;
-      if (shouldEmitPartialTextEvent(partialText, lastPartialTextEventLength)) {
-        progressEvents.push({ kind: "text", text: partialText });
-        lastPartialTextEventLength = partialText.length;
-      }
-    }
-
-    if (
-      message.type === "result" &&
-      partialText.length > lastPartialTextEventLength
-    ) {
-      progressEvents.push({ kind: "text", text: partialText });
-      partialText = "";
-      lastPartialTextEventLength = 0;
-    }
-
-    if (message.type === "assistant") {
-      partialText = "";
-      lastPartialTextEventLength = 0;
-    }
-
-    for (const event of progressEvents) {
-      runEvents.push(event);
-      options.onEvent?.(event);
-    }
-
-    if (message.type === "result") {
-      result = message;
-    }
+  let continuation: ClaudeContinuationPayload | undefined;
+  try {
+    continuation = input.continuation
+      ? decodeClaudeContinuation(input.continuation, continuationSecret!)
+      : undefined;
+  } catch (caught) {
+    return createFailedResult(formatCaughtError(caught), runOptions.onEvent);
   }
 
-  if (!result) {
-    const event = {
-      kind: "error",
-      message: "Claude Agent SDK did not return a result",
-    } satisfies AgentRunEvent;
-    options.onEvent?.(event);
+  if (input.responses?.length && !continuation?.pendingToolUseId) {
+    return createFailedResult(
+      "Claude input responses require a pending deferred tool",
+      runOptions.onEvent,
+    );
+  }
 
+  ensureStateDirectory(config.stateDirectory);
+  const sdk = await (runOptions.loadSdk ?? loadClaudeAgentSdk)();
+  const events: AgentRunEvent[] = [];
+  const projection = new ClaudeEventProjection();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), config.requestTimeoutMs);
+  let result: Extract<SDKMessage, { type: "result" }> | undefined;
+  let sessionId = continuation?.sessionId;
+
+  try {
+    for await (const message of sdk.query({
+      prompt: input.prompt ?? "",
+      options: createClaudeQueryOptions({
+        config,
+        continuation,
+        controller,
+        responses: input.responses ?? [],
+        onAudit: runOptions.onAudit ?? writeClaudeAuditEvent,
+      }),
+    })) {
+      if ("session_id" in message) {
+        sessionId = message.session_id;
+      }
+      for (const event of projection.project(message)) {
+        emitEvent(events, event, runOptions.onEvent);
+      }
+      if (message.type === "result") {
+        result = message;
+      }
+    }
+  } catch (caught) {
+    const reason = controller.signal.aborted
+      ? `Claude Agent request timed out after ${config.requestTimeoutMs}ms`
+      : formatCaughtError(caught);
+    emitErrorOnce(events, reason, runOptions.onEvent);
     return {
       status: "failed",
-      events: [...runEvents, event],
-      reason: "Claude Agent SDK did not return a result",
+      events,
+      reason,
       ...(sessionId ? { sessionId } : {}),
+      ...createContinuationResult(
+        sessionId,
+        continuation?.pendingToolUseId,
+        continuationSecret,
+        config.continuationTtlMs,
+      ),
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!result || !sessionId) {
+    const reason = "Claude Agent SDK did not return a result with a session";
+    emitErrorOnce(events, reason, runOptions.onEvent);
+    return { status: "failed", events, reason };
+  }
+
+  if (isDeferredResult(result)) {
+    try {
+      emitEvent(
+        events,
+        {
+          kind: "input-requested",
+          requests: projectClaudeInputRequests(
+            result.deferred_tool_use.id,
+            result.deferred_tool_use.input,
+          ),
+        },
+        runOptions.onEvent,
+      );
+      emitEvent(events, { kind: "waiting" }, runOptions.onEvent);
+    } catch (caught) {
+      const reason = formatCaughtError(caught);
+      emitErrorOnce(events, reason, runOptions.onEvent);
+      return { status: "failed", events, reason, sessionId };
+    }
+
+    return {
+      status: "waiting",
+      events,
+      output: result.result,
+      sessionId,
+      ...createContinuationResult(
+        sessionId,
+        result.deferred_tool_use.id,
+        continuationSecret,
+        config.continuationTtlMs,
+      ),
     };
   }
 
@@ -191,141 +287,76 @@ export async function runClaudeAgent(
     const reason =
       "errors" in result ? result.errors.join("\n") : result.result;
     const message = reason || "Claude Agent SDK run failed";
-    const event = { kind: "error", message } satisfies AgentRunEvent;
-    options.onEvent?.(event);
-
+    emitErrorOnce(events, message, runOptions.onEvent);
     return {
       status: "failed",
-      events: [...runEvents, event],
+      events,
       reason: message,
-      ...(sessionId ? { sessionId } : {}),
+      sessionId,
+      ...createContinuationResult(
+        sessionId,
+        undefined,
+        continuationSecret,
+        config.continuationTtlMs,
+      ),
     };
   }
 
-  const event = { kind: "done", result: result.result } satisfies AgentRunEvent;
-  options.onEvent?.(event);
-
+  emitEvent(
+    events,
+    { kind: "done", result: result.result },
+    runOptions.onEvent,
+  );
   return {
     status: "completed",
-    events: [...runEvents, event],
+    events,
     output: result.result,
-    ...(sessionId ? { sessionId } : {}),
+    sessionId,
+    ...createContinuationResult(
+      sessionId,
+      undefined,
+      continuationSecret,
+      config.continuationTtlMs,
+    ),
   };
 }
 
-function shouldEmitPartialTextEvent(text: string, lastEventLength: number) {
-  return (
-    lastEventLength === 0 ||
-    text.length - lastEventLength >= partialTextEventMinDelta
-  );
+function createClaudeQueryOptions(input: {
+  config: ResolvedClaudeAgentConfig;
+  continuation: ClaudeContinuationPayload | undefined;
+  controller: AbortController;
+  responses: readonly AgentInputResponse[];
+  onAudit: (event: ClaudeAuditEvent) => void;
+}): ClaudeSdkOptions {
+  return {
+    abortController: input.controller,
+    cwd: resolveClaudeAgentRoot(input.config.agentRoot),
+    env: createClaudeAgentSubprocessEnv(input.config),
+    hooks: createClaudeRuntimeHooks({
+      continuation: input.continuation,
+      responses: input.responses,
+      onAudit: input.onAudit,
+    }),
+    includePartialMessages: true,
+    maxBudgetUsd: input.config.maxBudgetUsd,
+    maxTurns: input.config.maxTurns,
+    permissionMode: "dontAsk",
+    persistSession: true,
+    settingSources: ["project"],
+    skills: "all",
+    systemPrompt: { type: "preset", preset: "claude_code" },
+    tools: ["AskUserQuestion"],
+    ...(input.continuation ? { resume: input.continuation.sessionId } : {}),
+    ...(!input.config.baseUrl ? { model: input.config.model } : {}),
+  };
 }
 
-function formatClaudeAgentProgressEvent(message: SDKMessage): AgentRunEvent[] {
-  if (
-    message.type === "result" ||
-    message.type === "system" ||
-    message.type === "stream_event"
-  ) {
-    return [];
-  }
-
-  if (message.type === "assistant") {
-    return formatClaudeAssistantMessage(message);
-  }
-
-  if (message.type === "user") {
-    return formatClaudeUserMessage(message);
-  }
-
-  return [
-    { kind: "unknown", text: JSON.stringify(message) ?? String(message) },
-  ];
-}
-
-function readClaudePartialTextDelta(message: SDKMessage): string | undefined {
-  if (message.type !== "stream_event") {
-    return undefined;
-  }
-
-  const { event } = message;
-
-  if (
-    event.type !== "content_block_delta" ||
-    event.delta.type !== "text_delta"
-  ) {
-    return undefined;
-  }
-
-  return event.delta.text;
-}
-
-function isClaudePartialTextStart(message: SDKMessage) {
-  return (
-    message.type === "stream_event" &&
-    message.event.type === "content_block_start" &&
-    message.event.content_block.type === "text"
-  );
-}
-
-function formatClaudeAssistantMessage(
-  message: Extract<SDKMessage, { type: "assistant" }>,
-): AgentRunEvent[] {
-  const content = message.message.content;
-
-  if (!Array.isArray(content)) {
-    return [];
-  }
-
-  const events: AgentRunEvent[] = [];
-
-  for (const item of content) {
-    if (item.type === "text") {
-      events.push({ kind: "text", text: item.text });
-    }
-
-    if (item.type === "tool_use") {
-      events.push({
-        kind: "tool-call",
-        tool: item.name,
-        input: JSON.stringify(item.input ?? {}),
-      });
-    }
-  }
-
-  return events;
-}
-
-function formatClaudeUserMessage(
-  message: Extract<SDKMessage, { type: "user" }>,
-): AgentRunEvent[] {
-  const content = message.message.content;
-
-  if (!Array.isArray(content)) {
-    return [];
-  }
-
-  const events: AgentRunEvent[] = [];
-
-  for (const item of content) {
-    if (item.type === "tool_result") {
-      events.push({
-        kind: "tool-result",
-        tool: item.tool_use_id,
-      });
-    }
-  }
-
-  return events;
-}
-
-function createClaudeAgentSubprocessEnv(config: ClaudeAgentConfig) {
-  const claudeConfigDir = join(tmpdir(), "agent-template-claude-code");
-  mkdirSync(claudeConfigDir, { recursive: true });
-
-  const env = {
+function createClaudeAgentSubprocessEnv(config: ResolvedClaudeAgentConfig) {
+  const env: Record<string, string | undefined> = {
     ...process.env,
-    CLAUDE_CODE_AUTO_COMPACT_WINDOW: "262144",
-    CLAUDE_CONFIG_DIR: claudeConfigDir,
+    CLAUDE_AGENT_SDK_CLIENT_APP: "agent-template/1.0.0",
+    CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(config.autoCompactWindow),
+    CLAUDE_CONFIG_DIR: config.stateDirectory,
     CLAUDE_TOOLBOX_MCP_URL: toMcpEndpoint(
       config.toolboxUrl ?? defaultClaudeToolboxUrl,
     ),
@@ -342,6 +373,8 @@ function createClaudeAgentSubprocessEnv(config: ClaudeAgentConfig) {
       : {}),
   };
 
+  delete env.CLAUDE_AGENT_CONTINUATION_SECRET;
+  delete env.TOOLBOX_URL;
   if (config.baseUrl) {
     delete env.ANTHROPIC_DEFAULT_HAIKU_MODEL;
     delete env.ANTHROPIC_DEFAULT_OPUS_MODEL;
@@ -352,7 +385,83 @@ function createClaudeAgentSubprocessEnv(config: ClaudeAgentConfig) {
   return env;
 }
 
+function createContinuationResult(
+  sessionId: string | undefined,
+  pendingToolUseId: string | undefined,
+  secret: string | undefined,
+  ttlMs: number,
+): { continuation?: AgentContinuation } {
+  if (!sessionId || !secret) {
+    return {};
+  }
+  return {
+    continuation: encodeClaudeContinuation(
+      { sessionId, ...(pendingToolUseId ? { pendingToolUseId } : {}) },
+      secret,
+      ttlMs,
+    ),
+  };
+}
+
+function isDeferredResult(
+  result: Extract<SDKMessage, { type: "result" }>,
+): result is Extract<SDKMessage, { type: "result" }> & {
+  subtype: "success";
+  result: string;
+  deferred_tool_use: { id: string; name: string; input: Record<string, unknown> };
+} {
+  return (
+    result.subtype === "success" &&
+    result.stop_reason === "tool_deferred" &&
+    result.deferred_tool_use?.name === "AskUserQuestion"
+  );
+}
+
+function ensureStateDirectory(path: string) {
+  mkdirSync(path, { recursive: true, mode: 0o700 });
+  chmodSync(path, 0o700);
+}
+
 function toMcpEndpoint(toolboxUrl: string) {
   const normalized = toolboxUrl.replace(/\/+$/, "");
   return normalized.endsWith("/mcp") ? normalized : `${normalized}/mcp`;
+}
+
+function emitEvent(
+  events: AgentRunEvent[],
+  event: AgentRunEvent,
+  onEvent: ((event: AgentRunEvent) => void) | undefined,
+) {
+  events.push(event);
+  onEvent?.(event);
+}
+
+function emitErrorOnce(
+  events: AgentRunEvent[],
+  reason: string,
+  onEvent: ((event: AgentRunEvent) => void) | undefined,
+) {
+  if (
+    events.some((event) => event.kind === "error" && event.message === reason)
+  ) {
+    return;
+  }
+  emitEvent(events, { kind: "error", message: reason }, onEvent);
+}
+
+function createFailedResult(
+  reason: string,
+  onEvent: ((event: AgentRunEvent) => void) | undefined,
+): ClaudeAgentRunResult {
+  const event = { kind: "error", message: reason } satisfies AgentRunEvent;
+  onEvent?.(event);
+  return { status: "failed", events: [event], reason };
+}
+
+function writeClaudeAuditEvent(event: ClaudeAuditEvent) {
+  logger.info(event, "Claude Agent lifecycle");
+}
+
+function formatCaughtError(caught: unknown) {
+  return caught instanceof Error ? caught.message : String(caught);
 }

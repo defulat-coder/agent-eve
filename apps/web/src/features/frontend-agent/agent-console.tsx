@@ -84,8 +84,8 @@ export function AgentConsole() {
     }
   }
 
-  async function handleInputResponse(response: AgentInputResponse) {
-    await executeAgentTurn({ responses: [response] });
+  async function handleInputResponses(responses: AgentInputResponse[]) {
+    await executeAgentTurn({ responses });
   }
 
   function handleNewSession() {
@@ -185,7 +185,7 @@ export function AgentConsole() {
       <AgentRunTimeline
         disabled={submitting}
         events={events}
-        onInputResponse={handleInputResponse}
+        onInputResponses={handleInputResponses}
       />
     </form>
   );
@@ -244,7 +244,7 @@ function getStatusText(status: AgentConsoleStatus, error: string) {
   }
 
   if (status === "waiting") {
-    return "Agent 已回复，Eve 会话可继续。";
+    return "Agent 会话正在等待人工输入或下一条消息。";
   }
 
   if (status === "skipped") {

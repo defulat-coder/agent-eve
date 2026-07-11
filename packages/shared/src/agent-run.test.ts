@@ -62,4 +62,24 @@ describe("AgentRunResultSchema", () => {
       }),
     ).toThrow("require a continuation");
   });
+
+  it("accepts multi-select responses and rejects ambiguous response values", () => {
+    expect(
+      AgentRunInputSchema.parse({
+        continuation: { token: "opaque-token" },
+        responses: [{ requestId: "request-1", optionIds: ["a", "b"] }],
+      }),
+    ).toMatchObject({
+      responses: [{ requestId: "request-1", optionIds: ["a", "b"] }],
+    });
+
+    expect(() =>
+      AgentRunInputSchema.parse({
+        continuation: { token: "opaque-token" },
+        responses: [
+          { requestId: "request-1", optionId: "a", text: "ambiguous" },
+        ],
+      }),
+    ).toThrow("only one response value");
+  });
 });

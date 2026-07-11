@@ -115,6 +115,7 @@ describe("Agent runtime selector", () => {
               status: "completed",
               events: [{ kind: "done", result: "Done" }],
               output: "Done",
+              sessionId: "claude-session-1",
             };
           },
         },
@@ -131,15 +132,34 @@ describe("Agent runtime selector", () => {
     await expect(runAgent({ prompt: "" }, {})).rejects.toThrow();
   });
 
-  it("rejects continuation when the selected runtime does not support it", async () => {
+  it("passes opaque continuation and input responses to Claude", async () => {
+    const continuation = { token: "opaque-token" };
+    const responses = [{ requestId: "request-1", optionId: "approve" }];
+
     await expect(
       runAgent(
         {
-          prompt: "Continue",
-          continuation: { token: "opaque-token" },
+          continuation,
+          responses,
         },
-        { AGENT_RUNTIME: "claude" },
+        { AGENT_RUNTIME: "claude", ANTHROPIC_AUTH_TOKEN: "test-token" },
+        {
+          runClaude: async (input) => {
+            expect(input).toEqual({ continuation, responses });
+            return {
+              status: "waiting",
+              events: [{ kind: "waiting" }],
+              output: "",
+              sessionId: "claude-session-1",
+              continuation,
+            };
+          },
+        },
       ),
-    ).rejects.toThrow("does not support continuation");
+    ).resolves.toMatchObject({
+      continuation,
+      runtime: "claude",
+      status: "waiting",
+    });
   });
 });

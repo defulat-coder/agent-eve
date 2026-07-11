@@ -29,11 +29,11 @@ An event emitted while an Agent runtime executes an Agent run.
 _Avoid_: UI timeline item, log line
 
 **Agent continuation**:
-An opaque resume handle returned by an Agent run that can accept another message or input response. Its runtime-specific session state is not part of the shared product language.
+A server-issued opaque resume handle returned by an Agent run that can accept another message or input response. Its runtime-specific session state and validity rules are not part of the shared product language.
 _Avoid_: Eve session cursor, continuation token fields
 
 **Agent input request**:
-A request emitted by an Agent run when human confirmation, selection, or text is required before execution can continue.
+A request emitted when an Agent run pauses for human confirmation, selection, or text before execution can continue.
 _Avoid_: HITL event, approval popup
 
 **Agent input response**:

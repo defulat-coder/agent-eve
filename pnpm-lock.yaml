@@ -189,6 +189,9 @@ importers:
 
   packages/agent-claude:
     dependencies:
+      '@agent-template/logger':
+        specifier: workspace:*
+        version: link:../logger
       '@agent-template/shared':
         specifier: workspace:*
         version: link:../shared

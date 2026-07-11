@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   defaultAnthropicBaseUrl,
   defaultClaudeAgentMaxTurns,
@@ -55,7 +55,10 @@ describe("Claude Agent runtime", () => {
         },
       ),
     ).resolves.toMatchObject({
-      events: [{ kind: "done", result: "Done" }],
+      events: [
+        { kind: "usage", costUsd: 0 },
+        { kind: "done", result: "Done" },
+      ],
       output: "Done",
       status: "completed",
     });
@@ -72,13 +75,14 @@ describe("Claude Agent runtime", () => {
           },
           cwd: resolveClaudeAgentRoot(undefined),
           includePartialMessages: true,
+          maxBudgetUsd: 5,
           maxTurns: defaultClaudeAgentMaxTurns,
           permissionMode: "dontAsk",
-          persistSession: false,
+          persistSession: true,
           settingSources: ["project"],
           skills: "all",
           systemPrompt: { type: "preset", preset: "claude_code" },
-          tools: [],
+          tools: ["AskUserQuestion"],
         },
       },
     ]);
@@ -167,6 +171,7 @@ describe("Claude Agent runtime", () => {
       events: [
         { kind: "text", text: "Hel" },
         { kind: "text", text: "Hello" },
+        { kind: "usage", costUsd: 0 },
         { kind: "done", result: "Hello" },
       ],
       output: "Hello",
@@ -176,6 +181,7 @@ describe("Claude Agent runtime", () => {
     expect(events).toEqual([
       { kind: "text", text: "Hel" },
       { kind: "text", text: "Hello" },
+      { kind: "usage", costUsd: 0 },
       { kind: "done", result: "Hello" },
     ]);
   });
@@ -246,6 +252,7 @@ describe("Claude Agent runtime", () => {
           kind: "tool-call",
           tool: "mcp__toolbox__list-agent-runs",
         },
+        { kind: "usage", costUsd: 0 },
         { kind: "done", result: "Found recent runs" },
       ],
       output: "Found recent runs",
@@ -270,5 +277,139 @@ describe("Claude Agent runtime", () => {
     expect(subprocessEnv.CLAUDE_TOOLBOX_MCP_URL).toBe(
       "http://toolbox:15000/mcp",
     );
+  });
+
+  it("defers AskUserQuestion and resumes through an opaque continuation", async () => {
+    const queryCalls: unknown[] = [];
+    const firstRun = await runClaudeAgent(
+      { prompt: "分析本月销售" },
+      {
+        authToken: "test-token",
+        baseUrl: defaultAnthropicBaseUrl,
+        model: "kimi-for-coding",
+      },
+      {
+        loadSdk: async () => ({
+          query(params) {
+            queryCalls.push(params);
+            return (async function* () {
+              yield {
+                duration_api_ms: 0,
+                duration_ms: 0,
+                is_error: false,
+                modelUsage: {},
+                num_turns: 1,
+                permission_denials: [],
+                result: "",
+                session_id: "claude-session-1",
+                stop_reason: "tool_deferred",
+                subtype: "success",
+                total_cost_usd: 0,
+                type: "result",
+                usage: {},
+                deferred_tool_use: {
+                  id: "tool-1",
+                  name: "AskUserQuestion",
+                  input: {
+                    questions: [
+                      {
+                        question: "选择统计口径？",
+                        options: [
+                          { label: "GMV" },
+                          { label: "净销售额" },
+                        ],
+                      },
+                    ],
+                  },
+                },
+              } as unknown as SDKMessage;
+            })();
+          },
+        }),
+      },
+    );
+
+    expect(firstRun).toMatchObject({
+      status: "waiting",
+      continuation: { token: expect.stringMatching(/^claude:v1:/) },
+      events: [
+        { kind: "usage", costUsd: 0 },
+        {
+          kind: "input-requested",
+          requests: [
+            {
+              requestId: "tool-1:0",
+              prompt: "选择统计口径？",
+            },
+          ],
+        },
+        { kind: "waiting" },
+      ],
+    });
+
+    if (firstRun.status !== "waiting" || !firstRun.continuation) {
+      throw new Error("Expected a deferred Claude continuation");
+    }
+
+    const secondRun = await runClaudeAgent(
+      {
+        continuation: firstRun.continuation,
+        responses: [{ requestId: "tool-1:0", optionId: "1" }],
+      },
+      {
+        authToken: "test-token",
+        baseUrl: defaultAnthropicBaseUrl,
+        model: "kimi-for-coding",
+      },
+      {
+        loadSdk: async () => ({
+          query(params) {
+            queryCalls.push(params);
+            return (async function* () {
+              yield {
+                duration_api_ms: 0,
+                duration_ms: 0,
+                is_error: false,
+                modelUsage: {},
+                num_turns: 2,
+                permission_denials: [],
+                result: "净销售额为 100 元",
+                session_id: "claude-session-1",
+                stop_reason: "stop",
+                subtype: "success",
+                total_cost_usd: 0,
+                type: "result",
+                usage: {},
+              } as unknown as SDKMessage;
+            })();
+          },
+        }),
+      },
+    );
+
+    expect(secondRun).toMatchObject({
+      status: "completed",
+      output: "净销售额为 100 元",
+      continuation: { token: expect.stringMatching(/^claude:v1:/) },
+    });
+    expect(queryCalls[1]).toMatchObject({
+      prompt: "",
+      options: { resume: "claude-session-1", persistSession: true },
+    });
+  });
+
+  it("fails closed when a continuation signature is invalid", async () => {
+    const loadSdk = vi.fn();
+    await expect(
+      runClaudeAgent(
+        { prompt: "继续", continuation: { token: "claude:v1:bad.bad" } },
+        { authToken: "test-token", model: "kimi-for-coding" },
+        { loadSdk },
+      ),
+    ).resolves.toMatchObject({
+      status: "failed",
+      reason: expect.stringContaining("signature"),
+    });
+    expect(loadSdk).not.toHaveBeenCalled();
   });
 });
