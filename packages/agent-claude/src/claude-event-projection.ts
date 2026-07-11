@@ -5,6 +5,7 @@ import { summarizeClaudeToolInput } from "./claude-tool-event-policy.js";
 const partialTextEventMinDelta = 200;
 
 export class ClaudeEventProjection {
+  readonly #subagentNames = new Map<string, string>();
   readonly #toolNames = new Map<string, string>();
   #partialText = "";
   #lastPartialTextEventLength = 0;
@@ -148,25 +149,27 @@ export class ClaudeEventProjection {
           },
         ];
       case "task_started":
-        return message.skip_transcript
-          ? []
-          : [
-              {
-                kind: "subagent",
-                name: message.subagent_type ?? message.description,
-                status: "started",
-              },
-            ];
-      case "task_notification":
-        return message.skip_transcript
-          ? []
-          : [
-              {
-                kind: "subagent",
-                name: message.summary || message.task_id,
-                status: "completed",
-              },
-            ];
+        if (message.skip_transcript || !message.subagent_type) return [];
+        this.#subagentNames.set(message.task_id, message.subagent_type);
+        return [
+          {
+            kind: "subagent",
+            name: message.subagent_type,
+            status: "started",
+          },
+        ];
+      case "task_notification": {
+        const name = this.#subagentNames.get(message.task_id);
+        if (message.skip_transcript || !name) return [];
+        this.#subagentNames.delete(message.task_id);
+        return [
+          {
+            kind: "subagent",
+            name,
+            status: message.status,
+          },
+        ];
+      }
       case "mirror_error":
         return [{ kind: "error", message: message.error }];
       case "model_refusal_no_fallback":

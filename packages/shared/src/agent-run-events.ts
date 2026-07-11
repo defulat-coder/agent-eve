@@ -63,7 +63,7 @@ export const AgentRunEventSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("subagent"),
     name: z.string(),
-    status: z.enum(["started", "completed"]),
+    status: z.enum(["started", "completed", "failed", "stopped"]),
     sessionId: z.string().optional(),
   }),
   z.object({

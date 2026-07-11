@@ -76,7 +76,17 @@ describe("Claude event projection", () => {
       {
         description: "分析订单",
         session_id: "session-1",
+        subagent_type: "order-analyst",
         subtype: "task_started",
+        task_id: "task-1",
+        type: "system",
+      },
+      {
+        output_file: "/tmp/task-1",
+        session_id: "session-1",
+        status: "failed",
+        subtype: "task_notification",
+        summary: "分析失败",
         task_id: "task-1",
         type: "system",
       },
@@ -105,7 +115,8 @@ describe("Claude event projection", () => {
     expect(messages.flatMap((message) => projection.project(message))).toEqual([
       { kind: "compaction", status: "completed", inputTokens: 90_000 },
       { kind: "tool-result", tool: "Bash", status: "rejected", error: "Blocked" },
-      { kind: "subagent", name: "分析订单", status: "started" },
+      { kind: "subagent", name: "order-analyst", status: "started" },
+      { kind: "subagent", name: "order-analyst", status: "failed" },
       {
         kind: "usage",
         inputTokens: 10,
@@ -115,5 +126,19 @@ describe("Claude event projection", () => {
         costUsd: 0.12,
       },
     ]);
+  });
+
+  it("does not misclassify background shell tasks as subagents", () => {
+    const projection = new ClaudeEventProjection();
+    expect(
+      projection.project({
+        description: "run command",
+        session_id: "session-1",
+        subtype: "task_started",
+        task_id: "shell-1",
+        task_type: "shell",
+        type: "system",
+      } as unknown as SDKMessage),
+    ).toEqual([]);
   });
 });

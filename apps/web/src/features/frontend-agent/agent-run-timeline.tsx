@@ -119,7 +119,14 @@ function AgentRunEventRow({
 
   if (event.kind === "subagent") {
     return (
-      <LogRow label={`Subagent: ${event.name} (${event.status})`} tone="blue">
+      <LogRow
+        label={`Subagent: ${event.name} (${event.status})`}
+        tone={
+          event.status === "failed" || event.status === "stopped"
+            ? "red"
+            : "blue"
+        }
+      >
         {event.sessionId}
       </LogRow>
     );
