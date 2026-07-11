@@ -31,6 +31,11 @@ export const AgentRuntimeEnvSchema = z.object({
   ANTHROPIC_BASE_URL: z.string().url().optional(),
   ANTHROPIC_MODEL: z.string().default(defaultClaudeAgentModel),
   CLAUDE_AGENT_CONTINUATION_SECRET: z.string().optional(),
+  CLAUDE_AGENT_CONTINUATION_LEASE_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .optional(),
   CLAUDE_AGENT_CONTINUATION_TTL_MS: z.coerce
     .number()
     .int()
@@ -45,6 +50,7 @@ export const AgentRuntimeEnvSchema = z.object({
     .positive()
     .optional(),
   CLAUDE_AGENT_STATE_DIR: z.string().optional(),
+  REDIS_URL: z.string().url().optional(),
   EVE_AGENT_HOST: z.string().optional(),
   EVE_AGENT_MAX_RECONNECT_ATTEMPTS: z.coerce
     .number()

@@ -5,6 +5,7 @@ import type { AgentContinuation } from "@agent-template/shared";
 const continuationPrefix = "claude:v1:";
 
 const ClaudeContinuationPayloadSchema = z.object({
+  continuationId: z.string().uuid(),
   expiresAt: z.number().int().positive(),
   pendingToolUseId: z.string().min(1).optional(),
   sessionId: z.string().min(1),

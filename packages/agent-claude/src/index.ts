@@ -13,17 +13,18 @@ import type {
   AgentRunEvent,
 } from "@agent-template/shared";
 import { resolveClaudeAgentRoot } from "./authored-surface.js";
-import {
-  decodeClaudeContinuation,
-  encodeClaudeContinuation,
-  type ClaudeContinuationPayload,
-} from "./claude-continuation.js";
+import type { ClaudeContinuationPayload } from "./claude-continuation.js";
 import { ClaudeEventProjection } from "./claude-event-projection.js";
 import { projectClaudeInputRequests } from "./claude-hitl.js";
 import {
   createClaudeRuntimeHooks,
   type ClaudeAuditEvent,
 } from "./claude-runtime-hooks.js";
+import {
+  ClaudeSessionContinuations,
+  type ClaudeContinuationLeaseStore,
+} from "./claude-session-continuations.js";
+import { getRedisClaudeContinuationStore } from "./redis-claude-continuation-store.js";
 
 export const defaultClaudeAgentModel = "kimi-for-coding";
 export const defaultAnthropicBaseUrl = "https://api.kimi.com/coding/";
@@ -31,8 +32,10 @@ export const defaultClaudeAgentMaxTurns = 100;
 export const defaultClaudeAgentMaxBudgetUsd = 5;
 export const defaultClaudeAgentRequestTimeoutMs = 120_000;
 export const defaultClaudeContinuationTtlMs = 7 * 24 * 60 * 60 * 1_000;
+export const defaultClaudeContinuationLeaseMs = 150_000;
 export const defaultClaudeAutoCompactWindow = 262_144;
 export const defaultClaudeToolboxUrl = "http://localhost:15000";
+export const defaultClaudeRedisUrl = "redis://localhost:16379";
 export const defaultClaudeAgentStateDirectory = join(
   tmpdir(),
   "agent-template-claude-code",
@@ -52,6 +55,11 @@ export const ClaudeAgentConfigSchema = z.object({
     .min(1)
     .default(defaultClaudeAgentStateDirectory),
   continuationSecret: z.string().min(32).optional(),
+  continuationLeaseMs: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(defaultClaudeContinuationLeaseMs),
   continuationTtlMs: z.coerce
     .number()
     .int()
@@ -76,6 +84,7 @@ export const ClaudeAgentConfigSchema = z.object({
     .int()
     .positive()
     .default(defaultClaudeAutoCompactWindow),
+  redisUrl: z.string().url().default(defaultClaudeRedisUrl),
 });
 
 export type ClaudeAgentConfig = z.input<typeof ClaudeAgentConfigSchema>;
@@ -121,11 +130,14 @@ export function parseClaudeAgentConfig(
     toolboxUrl: input.TOOLBOX_URL || undefined,
     stateDirectory: input.CLAUDE_AGENT_STATE_DIR || undefined,
     continuationSecret: input.CLAUDE_AGENT_CONTINUATION_SECRET || undefined,
+    continuationLeaseMs:
+      input.CLAUDE_AGENT_CONTINUATION_LEASE_MS || undefined,
     continuationTtlMs: input.CLAUDE_AGENT_CONTINUATION_TTL_MS || undefined,
     maxTurns: input.CLAUDE_AGENT_MAX_TURNS || undefined,
     maxBudgetUsd: input.CLAUDE_AGENT_MAX_BUDGET_USD || undefined,
     requestTimeoutMs: input.CLAUDE_AGENT_REQUEST_TIMEOUT_MS || undefined,
     autoCompactWindow: input.CLAUDE_CODE_AUTO_COMPACT_WINDOW || undefined,
+    redisUrl: input.REDIS_URL || undefined,
   });
 }
 
@@ -161,6 +173,7 @@ export async function runClaudeAgent(
   unresolvedConfig: ClaudeAgentConfig,
   runOptions: {
     loadSdk?: () => Promise<ClaudeAgentSdk>;
+    continuationStore?: ClaudeContinuationLeaseStore;
     onAudit?: (event: ClaudeAuditEvent) => void;
     onEvent?: (event: AgentRunEvent) => void;
   } = {},
@@ -176,24 +189,43 @@ export async function runClaudeAgent(
     };
   }
 
+  const continuations = new ClaudeSessionContinuations({
+    leaseMs: config.continuationLeaseMs,
+    secret: continuationSecret!,
+    store:
+      runOptions.continuationStore ??
+      getRedisClaudeContinuationStore(config.redisUrl),
+    ttlMs: config.continuationTtlMs,
+  });
   let continuation: ClaudeContinuationPayload | undefined;
+  let continuationLease:
+    | Awaited<ReturnType<ClaudeSessionContinuations["acquire"]>>
+    | undefined;
   try {
-    continuation = input.continuation
-      ? decodeClaudeContinuation(input.continuation, continuationSecret!)
+    continuationLease = input.continuation
+      ? await continuations.acquire(input.continuation)
       : undefined;
+    continuation = continuationLease?.payload;
   } catch (caught) {
     return createFailedResult(formatCaughtError(caught), runOptions.onEvent);
   }
 
   if (input.responses?.length && !continuation?.pendingToolUseId) {
+    await continuationLease?.release();
     return createFailedResult(
       "Claude input responses require a pending deferred tool",
       runOptions.onEvent,
     );
   }
 
-  ensureStateDirectory(config.stateDirectory);
-  const sdk = await (runOptions.loadSdk ?? loadClaudeAgentSdk)();
+  let sdk: ClaudeAgentSdk;
+  try {
+    ensureStateDirectory(config.stateDirectory);
+    sdk = await (runOptions.loadSdk ?? loadClaudeAgentSdk)();
+  } catch (caught) {
+    await continuationLease?.release();
+    return createFailedResult(formatCaughtError(caught), runOptions.onEvent);
+  }
   const events: AgentRunEvent[] = [];
   const projection = new ClaudeEventProjection();
   const controller = new AbortController();
@@ -227,6 +259,10 @@ export async function runClaudeAgent(
       ? `Claude Agent request timed out after ${config.requestTimeoutMs}ms`
       : formatCaughtError(caught);
     emitErrorOnce(events, reason, runOptions.onEvent);
+    const leaseError = await completeContinuationLease(continuationLease);
+    if (leaseError) {
+      emitErrorOnce(events, leaseError, runOptions.onEvent);
+    }
     return {
       status: "failed",
       events,
@@ -235,12 +271,22 @@ export async function runClaudeAgent(
       ...createContinuationResult(
         sessionId,
         continuation?.pendingToolUseId,
-        continuationSecret,
-        config.continuationTtlMs,
+        continuations,
       ),
     };
   } finally {
     clearTimeout(timeout);
+  }
+
+  const leaseError = await completeContinuationLease(continuationLease);
+  if (leaseError) {
+    emitErrorOnce(events, leaseError, runOptions.onEvent);
+    return {
+      status: "failed",
+      events,
+      reason: leaseError,
+      ...(sessionId ? { sessionId } : {}),
+    };
   }
 
   if (!result || !sessionId) {
@@ -277,8 +323,7 @@ export async function runClaudeAgent(
       ...createContinuationResult(
         sessionId,
         result.deferred_tool_use.id,
-        continuationSecret,
-        config.continuationTtlMs,
+        continuations,
       ),
     };
   }
@@ -296,8 +341,7 @@ export async function runClaudeAgent(
       ...createContinuationResult(
         sessionId,
         undefined,
-        continuationSecret,
-        config.continuationTtlMs,
+        continuations,
       ),
     };
   }
@@ -315,8 +359,7 @@ export async function runClaudeAgent(
     ...createContinuationResult(
       sessionId,
       undefined,
-      continuationSecret,
-      config.continuationTtlMs,
+      continuations,
     ),
   };
 }
@@ -388,19 +431,31 @@ function createClaudeAgentSubprocessEnv(config: ResolvedClaudeAgentConfig) {
 function createContinuationResult(
   sessionId: string | undefined,
   pendingToolUseId: string | undefined,
-  secret: string | undefined,
-  ttlMs: number,
+  continuations: ClaudeSessionContinuations,
 ): { continuation?: AgentContinuation } {
-  if (!sessionId || !secret) {
+  if (!sessionId) {
     return {};
   }
   return {
-    continuation: encodeClaudeContinuation(
-      { sessionId, ...(pendingToolUseId ? { pendingToolUseId } : {}) },
-      secret,
-      ttlMs,
-    ),
+    continuation: continuations.issue({
+      sessionId,
+      ...(pendingToolUseId ? { pendingToolUseId } : {}),
+    }),
   };
+}
+
+async function completeContinuationLease(
+  lease:
+    | Awaited<ReturnType<ClaudeSessionContinuations["acquire"]>>
+    | undefined,
+) {
+  if (!lease) return undefined;
+  try {
+    await lease.complete();
+    return undefined;
+  } catch (caught) {
+    return formatCaughtError(caught);
+  }
 }
 
 function isDeferredResult(

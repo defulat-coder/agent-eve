@@ -8,6 +8,7 @@ import {
 } from "./index.js";
 import { resolveClaudeAgentRoot } from "./authored-surface.js";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import { createInMemoryClaudeContinuationStore } from "./claude-session-continuations.js";
 
 describe("Claude Agent runtime", () => {
   it("does not require an Anthropic API key", () => {
@@ -281,6 +282,7 @@ describe("Claude Agent runtime", () => {
 
   it("defers AskUserQuestion and resumes through an opaque continuation", async () => {
     const queryCalls: unknown[] = [];
+    const continuationStore = createInMemoryClaudeContinuationStore();
     const firstRun = await runClaudeAgent(
       { prompt: "分析本月销售" },
       {
@@ -289,6 +291,7 @@ describe("Claude Agent runtime", () => {
         model: "kimi-for-coding",
       },
       {
+        continuationStore,
         loadSdk: async () => ({
           query(params) {
             queryCalls.push(params);
@@ -368,6 +371,7 @@ describe("Claude Agent runtime", () => {
         model: "kimi-for-coding",
       },
       {
+        continuationStore,
         loadSdk: async () => ({
           query(params) {
             queryCalls.push(params);
@@ -402,6 +406,26 @@ describe("Claude Agent runtime", () => {
       prompt: "",
       options: { resume: "claude-session-1", persistSession: true },
     });
+
+    const loadSdk = vi.fn();
+    await expect(
+      runClaudeAgent(
+        {
+          continuation: firstRun.continuation,
+          prompt: "重放旧 token",
+        },
+        {
+          authToken: "test-token",
+          baseUrl: defaultAnthropicBaseUrl,
+          model: "kimi-for-coding",
+        },
+        { continuationStore, loadSdk },
+      ),
+    ).resolves.toMatchObject({
+      status: "failed",
+      reason: expect.stringContaining("consumed"),
+    });
+    expect(loadSdk).not.toHaveBeenCalled();
   });
 
   it("fails closed when a continuation signature is invalid", async () => {

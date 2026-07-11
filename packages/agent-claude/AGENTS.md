@@ -13,6 +13,7 @@
 - `agent/CLAUDE.md` 放每次会话加载的稳定指令；`agent/.claude/settings.json` 放权限和 project settings；`agent/.claude/skills/` 放按需加载的业务 Skill。
 - `CLAUDE_AGENT_STATE_DIR` 保存可续接 transcript；生产部署必须使用 API replica 共享的持久存储，并限制目录权限。
 - 公共 `AgentContinuation` 只携带签名 token；Claude session ID、deferred Tool ID 和签名细节留在 adapter 内。
+- continuation resume 必须先获取 Redis lease，结束后消费旧 token 并签发新 token；不要绕过 lease 直接设置 SDK `resume`。
 - `AskUserQuestion` 使用 `PreToolUse` defer/resume；不要用常驻 Promise 等待 Web 用户，也不要把 SDK session ID 发给客户端。
 - `CLAUDE_AGENT_MAX_TURNS`、`CLAUDE_AGENT_MAX_BUDGET_USD` 和 `CLAUDE_AGENT_REQUEST_TIMEOUT_MS` 必须保留 fail-closed 上限。
 - programmatic hooks 只记录 lifecycle metadata，不记录 prompt、Tool input/output 或客户数据。

@@ -34,6 +34,7 @@ describe("Claude runtime hooks", () => {
   it("allows a deferred question with structured answers", async () => {
     const hooks = createClaudeRuntimeHooks({
       continuation: {
+        continuationId: "5b00a548-773c-4e9c-a48c-b8116727a9c7",
         expiresAt: Date.now() + 1_000,
         pendingToolUseId: "tool-1",
         sessionId: "session-1",

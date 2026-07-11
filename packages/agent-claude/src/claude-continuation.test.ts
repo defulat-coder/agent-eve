@@ -9,7 +9,11 @@ const secret = "test-secret-with-at-least-thirty-two-characters";
 describe("Claude continuation", () => {
   it("round trips a signed session without exposing it as the public shape", () => {
     const continuation = encodeClaudeContinuation(
-      { sessionId: "session-1", pendingToolUseId: "tool-1" },
+      {
+        continuationId: "5b00a548-773c-4e9c-a48c-b8116727a9c7",
+        sessionId: "session-1",
+        pendingToolUseId: "tool-1",
+      },
       secret,
       1_000,
       100,
@@ -17,6 +21,7 @@ describe("Claude continuation", () => {
 
     expect(continuation).toEqual({ token: expect.stringMatching(/^claude:v1:/) });
     expect(decodeClaudeContinuation(continuation, secret, 200)).toEqual({
+      continuationId: "5b00a548-773c-4e9c-a48c-b8116727a9c7",
       expiresAt: 1_100,
       pendingToolUseId: "tool-1",
       sessionId: "session-1",
@@ -25,7 +30,10 @@ describe("Claude continuation", () => {
 
   it("rejects tampered and expired continuations", () => {
     const continuation = encodeClaudeContinuation(
-      { sessionId: "session-1" },
+      {
+        continuationId: "5b00a548-773c-4e9c-a48c-b8116727a9c7",
+        sessionId: "session-1",
+      },
       secret,
       100,
       100,
